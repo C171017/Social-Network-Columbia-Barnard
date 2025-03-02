@@ -1,23 +1,31 @@
-import logo from './logo.svg';
+import React, { useState } from 'react';
+import NetworkGraph from './components/NetworkGraph';
+import Legend from './components/Legend';
 import './App.css';
 
 function App() {
+  // This state is lifted up to App level so it can be shared between components
+  const [colorBy, setColorBy] = useState('email-sequence');
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+      <header>
+        <h1>Columbia/Barnard Network</h1>
       </header>
+      
+      <main>
+        <div className="visualization-container">
+          {/* Pass the state and setter to NetworkGraph */}
+          <NetworkGraph colorBy={colorBy} setColorBy={setColorBy} />
+        </div>
+        
+        <div className="sidebar">
+          {/* Pass the current colorBy to Legend so it knows what to display */}
+          <Legend colorBy={colorBy} />
+        </div>
+      </main>
+      
+     
     </div>
   );
 }
