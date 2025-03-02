@@ -2,26 +2,26 @@
   background-color: white;
   border: 1px solid #dadce0;
   border-radius: 8px;
-  padding: 15px;
-  margin: 20px auto; /* Center horizontally */
-  max-width: 250px;
+  padding: 10px 15px;
+  width: fit-content; /* Auto-adjust width */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%); /* Center properly */
+  position: static;
+  margin: 0 auto; /* Center if needed */
   z-index: 100;
+  display: inline-flex; /* Adjust to content */
+  flex-direction: column;
+  align-items: center;
 }
 
 .legend h3 {
   font-size: 16px;
   color: #202124;
-  margin-top: 0;
-  margin-bottom: 12px;
+  margin: 0 0 8px 0;
   text-transform: capitalize;
   padding-bottom: 8px;
   border-bottom: 1px solid #f1f3f4;
-  text-align: center; /* Center the heading */
+  text-align: center;
+  width: 100%;
 }
 
 .legend ul {
@@ -29,49 +29,43 @@
   padding: 0;
   margin: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center; /* Center list items */
+  flex-direction: row; /* Horizontal layout */
+  align-items: center;
+  justify-content: center;
+  gap: 15px; /* Space between items */
 }
 
 .legend li {
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* Align content to start but keep it centered overall */
-  margin-bottom: 8px;
+  justify-content: center;
   font-size: 14px;
-  width: 100%;
-  max-width: 200px; /* Ensure all items have same max width */
+  margin: 0;
+  white-space: nowrap; /* Prevent wrapping */
 }
 
 .color-box {
   display: inline-block;
   width: 18px;
   height: 18px;
-  margin-right: 10px;
+  margin-right: 6px;
   border-radius: 3px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  flex-shrink: 0; /* Prevent shrinking */
+  flex-shrink: 0;
 }
 
 .dashed-line {
   width: 30px;
   height: 2px;
-  margin-right: 10px;
+  margin-right: 6px;
   border-top: 3px dashed #000;
-  flex-shrink: 0; /* Prevent shrinking */
+  flex-shrink: 0;
 }
 
 .solid-line {
   width: 30px;
   height: 2px;
-  margin-right: 10px;
+  margin-right: 6px;
   border-top: 3px solid;
-  flex-shrink: 0; /* Prevent shrinking */
-}
-
-/* Legend container wrapper for better positioning */
-.legend-wrapper {
-  position: relative;
-  width: 100%;
-  height: 0; /* No height impact */
+  flex-shrink: 0;
 }
