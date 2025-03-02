@@ -9,9 +9,6 @@ function App() {
 
   return (
     <div className="App">
-      <header>
-        <h1>Columbia/Barnard Network</h1>
-      </header>
       
       <main>
         <div className="visualization-container">
