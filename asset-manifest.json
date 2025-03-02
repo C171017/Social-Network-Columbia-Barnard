@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/css/main.29373f9b.css",
+    "main.js": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/main.b819ab36.js",
+    "static/js/453.63b7ed1a.chunk.js": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/453.63b7ed1a.chunk.js",
+    "index.html": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/index.html",
+    "main.29373f9b.css.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/css/main.29373f9b.css.map",
+    "main.b819ab36.js.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/main.b819ab36.js.map",
+    "453.63b7ed1a.chunk.js.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/453.63b7ed1a.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.29373f9b.css",
+    "static/js/main.b819ab36.js"
+  ]
+}
