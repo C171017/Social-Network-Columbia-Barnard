@@ -4,190 +4,120 @@ import ControlPanel from './ControlPanel';
 import './NetworkGraph.css';
 
 // Define zoom settings
-const ZOOM_MIN = 0.5; // Maximum zoom out - shows the full working area
-const ZOOM_MAX = 5;   // Maximum zoom in
-const ZOOM_DEFAULT = 1; // Starting zoom level
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 1;
+const ZOOM_DEFAULT = 1;
+
+// Color definitions
+const COLOR_MAPS = {
+  major: {
+    "Mechanical Engineering": "#4285f4",
+    "Creative Writing": "#ea4335",
+    "Biomedical Engineering": "#fbbc05",
+    "Psychology": "#34a853",
+    "Human Rights": "#673ab7",
+    "Comparative Literature & Society": "#9C27B0",
+    "Computer Science": "#00ACC1",
+    "Unknown": "#9e9e9e"
+  },
+  school: {
+    "SEAS": "#4285f4",
+    "CC": "#ea4335",
+    "Barnard": "#34a853",
+    "Unknown": "#9e9e9e"
+  },
+  year: {
+    "2025": "#673ab7",
+    "2026": "#4285f4",
+    "2027": "#ea4335",
+    "Unknown": "#9e9e9e"
+  },
+  language: {
+    "French": "#4285f4",
+    "Spanish": "#ea4335",
+    "Mandarin": "#fbbc05",
+    "Greek": "#673ab7",
+    "English": "#34a853",
+    "Unknown": "#9e9e9e"
+  }
+};
 
 const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const svgRef = useRef();
   const [zoomLevel, setZoomLevel] = useState(ZOOM_DEFAULT);
-  // Store zoom reference to access it from buttons
   const zoomRef = useRef(null);
   
   // Color schemes for different attributes
   const colorSchemes = {
     'email-sequence': () => '#5F6368',
-    'major': (d) => {
-      const majorColors = {
-        "Mechanical Engineering": "#4285f4",
-        "Creative Writing": "#ea4335",
-        "Biomedical Engineering": "#fbbc05",
-        "Psychology": "#34a853",
-        "Human Rights": "#673ab7",
-        "Comparative Literature & Society": "#9C27B0",
-        "Computer Science": "#00ACC1",
-        "Unknown": "#9e9e9e"
-      };
-      return majorColors[d.major] || "#9e9e9e";
-    },
-    'school': (d) => {
-      const schoolColors = {
-        "SEAS": "#4285f4",
-        "CC": "#ea4335",
-        "Barnard": "#34a853",
-        "Unknown": "#9e9e9e"
-      };
-      return schoolColors[d.school] || "#9e9e9e";
-    },
-    'year': (d) => {
-      const yearColors = {
-        "2025": "#673ab7",
-        "2026": "#4285f4",
-        "2027": "#ea4335",
-        "Unknown": "#9e9e9e"
-      };
-      return yearColors[d.year] || "#9e9e9e";
-    },
+    'major': (d) => COLOR_MAPS.major[d.major] || "#9e9e9e",
+    'school': (d) => COLOR_MAPS.school[d.school] || "#9e9e9e",
+    'year': (d) => COLOR_MAPS.year[d.year] || "#9e9e9e",
     'language': (d) => {
-        const languages = d.language ? d.language.split(',').map(lang => lang.trim()) : [];
-    
-        // Check languages in the specific order from the legend
-        if (languages.some(lang => lang.includes("French"))) return "#4285f4";
-        if (languages.some(lang => lang.includes("Spanish"))) return "#ea4335";
-        if (languages.some(lang => lang.includes("Mandarin") || lang.includes("Chinese"))) return "#fbbc05";
-        if (languages.some(lang => lang.includes("Greek"))) return "#673ab7";
-        if (languages.some(lang => lang === "English")) return "#34a853";
-        return "#9e9e9e";
+      const languages = d.language ? d.language.split(',').map(lang => lang.trim()) : [];
+      if (languages.some(lang => lang.includes("French"))) return "#4285f4";
+      if (languages.some(lang => lang.includes("Spanish"))) return "#ea4335";
+      if (languages.some(lang => lang.includes("Mandarin") || lang.includes("Chinese"))) return "#fbbc05";
+      if (languages.some(lang => lang.includes("Greek"))) return "#673ab7";
+      if (languages.some(lang => lang === "English")) return "#34a853";
+      return "#9e9e9e";
     }
   };
   
   // Create multi-part nodes for multiple items (majors or languages)
   const createNodePath = (d) => {
+    const createSegmentedNode = (items, colorMap) => {
+      if (items.length === 0) return null;
+      
+      const anglePerItem = (2 * Math.PI) / items.length;
+      let pathData = '';
+      
+      items.forEach((item, i) => {
+        const startAngle = i * anglePerItem;
+        const endAngle = (i + 1) * anglePerItem;
+        
+        const start = {
+          x: 30 * Math.sin(startAngle),
+          y: -30 * Math.cos(startAngle)
+        };
+        
+        const end = {
+          x: 30 * Math.sin(endAngle),
+          y: -30 * Math.cos(endAngle)
+        };
+        
+        const largeArcFlag = endAngle - startAngle <= Math.PI ? 0 : 1;
+        
+        if (i === 0) {
+          pathData = `M 0 0 L ${start.x} ${start.y}`;
+        }
+        
+        pathData += ` A 30 30 0 ${largeArcFlag} 1 ${end.x} ${end.y} L 0 0`;
+      });
+      
+      return { pathData, items, colorMap };
+    };
+
     if (colorBy === 'language' && d.language && d.language.includes(',')) {
-      // Split and trim languages
       const languages = d.language.split(',').map(lang => lang.trim());
       
-      // Prioritize specific languages in order
-      const languageColors = {
-        "French": "#4285f4",
-        "Spanish": "#ea4335", 
-        "Mandarin": "#fbbc05",
-        "Greek": "#673ab7"
-      };
+      // Filter and normalize languages
+      const uniqueLanguages = [...new Set(
+        languages
+          .filter(lang => lang !== "English")
+          .map(lang => {
+            if (lang.includes("Chinese") || lang.includes("Mandarin")) return "Mandarin";
+            return lang;
+          })
+      )];
       
-      // Filter out English and consolidate Chinese variants
-      const filteredLanguages = languages
-        .filter(lang => lang !== "English")
-        .map(lang => {
-          if (lang.includes("Chinese") || lang.includes("Mandarin")) {
-            return "Mandarin";
-          }
-          return lang;
-        });
+      return createSegmentedNode(uniqueLanguages, COLOR_MAPS.language);
       
-      // Remove duplicates while preserving order of first appearance
-      const uniqueLanguages = [];
-      filteredLanguages.forEach(lang => {
-        if (!uniqueLanguages.includes(lang)) {
-          uniqueLanguages.push(lang);
-        }
-      });
-      
-      // If no non-English languages, return null
-      if (uniqueLanguages.length === 0) {
-        return null;
-      }
-      
-      const anglePerLanguage = (2 * Math.PI) / uniqueLanguages.length;
-      
-      let pathData = '';
-      uniqueLanguages.forEach((language, i) => {
-        const startAngle = i * anglePerLanguage;
-        const endAngle = (i + 1) * anglePerLanguage;
-        
-        const start = {
-          x: 30 * Math.sin(startAngle),
-          y: -30 * Math.cos(startAngle)
-        };
-        
-        const end = {
-          x: 30 * Math.sin(endAngle),
-          y: -30 * Math.cos(endAngle)
-        };
-        
-        const largeArcFlag = endAngle - startAngle <= Math.PI ? 0 : 1;
-        
-        if (i === 0) {
-          pathData = `M 0 0 L ${start.x} ${start.y}`;
-        }
-        
-        pathData += ` A 30 30 0 ${largeArcFlag} 1 ${end.x} ${end.y} L 0 0`;
-      });
-      
-      return { 
-        pathData, 
-        items: uniqueLanguages,
-        colorMap: languageColors 
-      };
     } else if (colorBy === 'major' && d.major && d.major.includes(',')) {
-      // Split and trim majors
       const majors = d.major.split(',').map(maj => maj.trim());
+      const uniqueMajors = [...new Set(majors)];
       
-      // Major colors from the color scheme
-      const majorColors = {
-        "Mechanical Engineering": "#4285f4",
-        "Creative Writing": "#ea4335",
-        "Biomedical Engineering": "#fbbc05",
-        "Psychology": "#34a853",
-        "Human Rights": "#673ab7",
-        "Comparative Literature & Society": "#2979FF",
-        "Computer Science": "#00ACC1"
-      };
-      
-      // Remove duplicates while preserving order of first appearance
-      const uniqueMajors = [];
-      majors.forEach(major => {
-        if (!uniqueMajors.includes(major)) {
-          uniqueMajors.push(major);
-        }
-      });
-      
-      // If no majors, return null
-      if (uniqueMajors.length === 0) {
-        return null;
-      }
-      
-      const anglePerMajor = (2 * Math.PI) / uniqueMajors.length;
-      
-      let pathData = '';
-      uniqueMajors.forEach((major, i) => {
-        const startAngle = i * anglePerMajor;
-        const endAngle = (i + 1) * anglePerMajor;
-        
-        const start = {
-          x: 30 * Math.sin(startAngle),
-          y: -30 * Math.cos(startAngle)
-        };
-        
-        const end = {
-          x: 30 * Math.sin(endAngle),
-          y: -30 * Math.cos(endAngle)
-        };
-        
-        const largeArcFlag = endAngle - startAngle <= Math.PI ? 0 : 1;
-        
-        if (i === 0) {
-          pathData = `M 0 0 L ${start.x} ${start.y}`;
-        }
-        
-        pathData += ` A 30 30 0 ${largeArcFlag} 1 ${end.x} ${end.y} L 0 0`;
-      });
-      
-      return { 
-        pathData, 
-        items: uniqueMajors,
-        colorMap: majorColors 
-      };
+      return createSegmentedNode(uniqueMajors, COLOR_MAPS.major);
     }
     
     return null;
@@ -195,114 +125,81 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
   // Set up zoom behavior
   const setupZoom = (svg, g) => {
-    // Create zoom behavior
     const zoom = d3.zoom()
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
         setZoomLevel(Math.round(event.transform.k * 100) / 100);
       })
-      .filter(event => {
-        // Allow wheel events, touches, and clicks (but not dblclicks)
-        return event.type !== 'dblclick' && 
-               !event.ctrlKey && !event.button;
-      });
+      .filter(event => event.type !== 'dblclick' && !event.ctrlKey && !event.button);
     
-    // Apply zoom to SVG with initial transform - start slightly zoomed out
     svg.call(zoom)
-       .call(zoom.transform, d3.zoomIdentity.scale(0.7));
+       .call(zoom.transform, d3.zoomIdentity.scale(0.7))
+       .call(zoom.touchable(true));
     
-    // Make sure touch events work properly
-    svg.call(zoom.touchable(true));
-    
-    
-    // Return zoom function for external controls
     return zoom;
   };
   
-  // Handle zoom buttons
-  const handleZoomIn = () => {
-    if (svgRef.current && zoomRef.current && zoomLevel < ZOOM_MAX) {
+  // Handle zoom transformations
+  const handleZoom = (newZoom, duration = 300) => {
+    if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
-      const newZoom = Math.min(zoomLevel + 0.25, ZOOM_MAX);
-      
-      // Get current translation
       const currentTransform = d3.zoomTransform(svg.node());
-      const newTransform = d3.zoomIdentity
-        .translate(currentTransform.x, currentTransform.y)
-        .scale(newZoom);
       
-      svg.transition().duration(300).call(zoomRef.current.transform, newTransform);
+      const transform = newZoom === null 
+        ? d3.zoomIdentity 
+        : d3.zoomIdentity
+            .translate(currentTransform.x, currentTransform.y)
+            .scale(newZoom);
+      
+      svg.transition().duration(duration).call(zoomRef.current.transform, transform);
+    }
+  };
+  
+  const handleZoomIn = () => {
+    if (zoomLevel < ZOOM_MAX) {
+      handleZoom(Math.min(zoomLevel + 0.25, ZOOM_MAX));
     }
   };
   
   const handleZoomOut = () => {
-    if (svgRef.current && zoomRef.current && zoomLevel > ZOOM_MIN) {
-      const svg = d3.select(svgRef.current);
-      const newZoom = Math.max(zoomLevel - 0.25, ZOOM_MIN);
-      
-      // Get current translation
-      const currentTransform = d3.zoomTransform(svg.node());
-      const newTransform = d3.zoomIdentity
-        .translate(currentTransform.x, currentTransform.y)
-        .scale(newZoom);
-      
-      svg.transition().duration(300).call(zoomRef.current.transform, newTransform);
+    if (zoomLevel > ZOOM_MIN) {
+      handleZoom(Math.max(zoomLevel - 0.25, ZOOM_MIN));
     }
   };
   
   const handleResetView = () => {
-    if (svgRef.current && zoomRef.current) {
-      const svg = d3.select(svgRef.current);
-      
-      // Smoothly animate to identity transform
-      svg.transition().duration(500)
-        .call(zoomRef.current.transform, d3.zoomIdentity);
-    }
+    handleZoom(null, 500);
   };
   
   // Add window resize handler
   useEffect(() => {
     const handleResize = () => {
-      // Redraw the network when window is resized
-      if (svgRef.current && svgRef.current.parentElement) {
-        const newWidth = svgRef.current.parentElement.clientWidth;
-        const newHeight = window.innerHeight * 0.7;
-        
+      if (svgRef.current?.parentElement) {
         const svg = d3.select(svgRef.current);
-        svg.attr('viewBox', `0 0 ${newWidth} ${newHeight}`);
+        svg.attr('viewBox', `0 0 ${svgRef.current.parentElement.clientWidth} ${window.innerHeight * 0.7}`);
           
-        // Preserve zoom state through resize
+        // Preserve zoom state
         if (zoomRef.current) {
-          const currentTransform = d3.zoomTransform(svg.node());
-          svg.select('g').attr('transform', currentTransform);
+          svg.select('g').attr('transform', d3.zoomTransform(svg.node()));
         }
       }
     };
 
     window.addEventListener('resize', handleResize);
-    
-    // Clean up event listener
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
   
   // Set up touch event handling for proper pinch zoom
   useEffect(() => {
-    // Add event listener to prevent default touch actions for pinch gestures
     const handleTouch = (e) => {
-      // Only prevent default for multi-touch gestures (like pinch zoom)
-      if (e.touches && e.touches.length >= 2) {
-        e.preventDefault();
-      }
+      if (e.touches?.length >= 2) e.preventDefault();
     };
     
-    // Add the event listener with passive: false to allow preventDefault
-    document.addEventListener('touchmove', handleTouch, { passive: false });
-    document.addEventListener('touchstart', handleTouch, { passive: false });
+    const options = { passive: false };
+    document.addEventListener('touchmove', handleTouch, options);
+    document.addEventListener('touchstart', handleTouch, options);
     
-    // Clean up
     return () => {
       document.removeEventListener('touchmove', handleTouch);
       document.removeEventListener('touchstart', handleTouch);
@@ -837,41 +734,24 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   }, [colorBy, data]); // Re-render when colorBy or data changes
   
   
+  const preventAndCall = (handler) => (e) => {
+    e.preventDefault();
+    handler();
+  };
+  
   return (
     <div className="network-container">
       <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
       <svg ref={svgRef} className="network-graph"></svg>
       
-      {/* Zoom controls */}
       <div className="zoom-controls">
-        <button 
-          className="zoom-button" 
-          onClick={handleZoomIn} 
-          aria-label="Zoom in"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleZoomIn();
-          }}
-        >+</button>
+        <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in" 
+                onTouchStart={preventAndCall(handleZoomIn)}>+</button>
         <div className="zoom-level">{Math.round(zoomLevel * 100)}%</div>
-        <button 
-          className="zoom-button" 
-          onClick={handleZoomOut} 
-          aria-label="Zoom out"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleZoomOut();
-          }}
-        >−</button>
-        <button 
-          className="reset-view-button" 
-          onClick={handleResetView} 
-          aria-label="Reset view"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleResetView();
-          }}
-        >⟳</button>
+        <button className="zoom-button" onClick={handleZoomOut} aria-label="Zoom out"
+                onTouchStart={preventAndCall(handleZoomOut)}>−</button>
+        <button className="reset-view-button" onClick={handleResetView} aria-label="Reset view"
+                onTouchStart={preventAndCall(handleResetView)}>⟳</button>
       </div>
     </div>
   );
