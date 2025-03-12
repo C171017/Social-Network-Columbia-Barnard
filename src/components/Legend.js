@@ -15,7 +15,8 @@ const Legend = ({ colorBy }) => {
       { color: '#fbbc05', label: 'Biomedical Engineering' },
       { color: '#34a853', label: 'Psychology' },
       { color: '#673ab7', label: 'Human Rights' },
-      { color: '#E91E63', label: 'Comparative Literature & Society' },
+      { color: '#9C27B0', label: 'Comparative Literature & Society' },
+      { color: '#00ACC1', label: 'Computer Science' },
       { color: '#9e9e9e', label: 'Unknown' }
     ],
     'school': [
@@ -35,7 +36,7 @@ const Legend = ({ colorBy }) => {
       { color: '#ea4335', label: 'Spanish' },
       { color: '#fbbc05', label: 'Mandarin' },
       { color: '#673ab7', label: 'Greek' },
-      { color: '#34a853', label: 'English only' },
+      { color: '#34a853', label: 'English' },
       { color: '#9e9e9e', label: 'Unknown' }
     ]
   };

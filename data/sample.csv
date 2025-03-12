@@ -1,0 +1,14 @@
+UNI,time,school,year,major,language1,language2,language3,nextUNI1,nextUNI2
+ab1234,2023-09-01,SEAS,2025,Computer Science,English,Spanish,Mandarin,cd5678,ef9012
+cd5678,2023-09-01,CC,2026,Economics,English,French,,gh3456,ij7890
+ef9012,2023-09-01,Barnard,2027,Psychology,Spanish,English,French,kl1234,
+gh3456,2023-09-01,SEAS,2025,Mechanical Engineering,English,German,,mn5678,
+ij7890,2023-09-01,CC,2026,Political Science,English,Arabic,,op9012,ab1234
+kl1234,2023-09-01,Barnard,2025,Creative Writing,French,English,,qr3456,
+mn5678,2023-09-01,SEAS,2027,Electrical Engineering,Mandarin,English,,st7890,cd5678
+op9012,2023-09-01,CC,2025,History,English,Italian,Greek,uv1234,
+qr3456,2023-09-01,Barnard,2026,Sociology,Spanish,English,,wx5678,
+st7890,2023-09-01,SEAS,2026,Chemical Engineering,English,Korean,,yz9012,
+uv1234,2023-09-01,CC,2027,Mathematics,Greek,English,,ab1234,
+wx5678,2023-09-01,Barnard,2025,Art History,French,Spanish,English,,
+yz9012,2023-09-01,SEAS,2027,Biomedical Engineering,English,Japanese,,,

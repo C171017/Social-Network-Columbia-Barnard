@@ -20,24 +20,10 @@ const ControlPanel = ({ colorBy, setColorBy }) => {
           <option value="major">Major</option>
           <option value="school">School</option>
           <option value="year">Year</option>
-          <option value="language">Language (Except English)</option>
+          <option value="language">Language</option>
         </select>
       </div>
-      
-      {/* You can add additional controls here */}
-      <div className="additional-controls">
-        {colorBy === 'major' && (
-          <div className="info-text">
-            Nodes with multiple majors will show split colors
-          </div>
-        )}
-        
-        {colorBy === 'language' && (
-          <div className="info-text">
-            Showing primary language (first in list)
-          </div>
-        )}
-      </div>
+
     </div>
   );
 };

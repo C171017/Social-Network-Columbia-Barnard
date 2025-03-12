@@ -1,0 +1,9 @@
+{
+  "name": "columbia-network-data-processor",
+  "version": "1.0.0",
+  "description": "Data processor for Columbia Network Visualization",
+  "main": "process_data.js",
+  "dependencies": {
+    "csv-parser": "^3.0.0"
+  }
+}

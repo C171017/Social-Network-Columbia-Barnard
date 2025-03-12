@@ -1,38 +1,77 @@
 .App {
   text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  background-color: var(--bg-color);
 }
 
-.App-link {
-  color: #61dafb;
+.app-header {
+  padding: var(--spacing-md);
+  background-color: var(--card-bg);
+  border-bottom: 3px solid var(--primary-color);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  position: relative;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.app-title {
+  font-weight: 600;
+  margin: 0;
+  color: var(--primary-color);
+  font-size: 1.4rem;
+}
+
+main {
+  display: flex;
+  flex: 1;
+  height: 100vh; /* Full viewport height now that header is removed */
+  padding: var(--spacing-sm);
+  gap: var(--spacing-md);
+  margin: 0 auto;
+  max-width: 1600px; /* Limit maximum width for better UX on large screens */
+  width: 100%;
+}
+
+.visualization-container {
+  flex: 3;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.sidebar {
+  flex: 1;
+  min-width: 250px;
+  max-width: 400px;
+  background-color: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 768px) {
+  main {
+    flex-direction: column;
+    padding: var(--spacing-sm);
+    gap: var(--spacing-sm);
   }
-  to {
-    transform: rotate(360deg);
+  
+  .visualization-container {
+    height: 70vh;
+  }
+  
+  .sidebar {
+    max-width: 100%;
+    height: 30vh;
+    padding: var(--spacing-sm);
+  }
+  
+  .app-title {
+    font-size: 1.2rem;
   }
 }
