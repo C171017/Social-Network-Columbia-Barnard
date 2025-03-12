@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/css/main.0f4bd9b1.css",
-    "main.js": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/main.69cb347e.js",
+    "main.css": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/css/main.ec6fdc2c.css",
+    "main.js": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/main.05f5ece4.js",
     "static/js/453.63b7ed1a.chunk.js": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/453.63b7ed1a.chunk.js",
     "index.html": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/index.html",
-    "main.0f4bd9b1.css.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/css/main.0f4bd9b1.css.map",
-    "main.69cb347e.js.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/main.69cb347e.js.map",
+    "main.ec6fdc2c.css.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/css/main.ec6fdc2c.css.map",
+    "main.05f5ece4.js.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/main.05f5ece4.js.map",
     "453.63b7ed1a.chunk.js.map": "/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/static/js/453.63b7ed1a.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.0f4bd9b1.css",
-    "static/js/main.69cb347e.js"
+    "static/css/main.ec6fdc2c.css",
+    "static/js/main.05f5ece4.js"
   ]
 }
