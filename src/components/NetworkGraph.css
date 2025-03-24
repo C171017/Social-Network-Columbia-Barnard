@@ -18,6 +18,8 @@
   -ms-user-select: none; /* IE/Edge */
   user-select: none; /* Standard */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Add subtle shadow for depth */
+  background-color: black;
+  position: relative; /* Ensure this is set for absolute positioning to work */
 }
 
 .control-panel {
@@ -33,13 +35,24 @@
   align-items: center;
 }
 
+/* Make sure SVG has a higher z-index */
+.visualization-area {
+  position: relative;
+  width: 100%;
+  flex-grow: 1;
+  display: flex;
+  overflow: hidden;
+}
+
 .network-graph {
   width: 100%;
-  height: 100%; /* Take full height */
-  flex-grow: 1; /* Allow graph to take remaining space */
-  background-color: var(--bg-color);
-  overflow: visible; /* Allow content to extend beyond the SVG viewport */
-  cursor: move; /* Show appropriate cursor for pan */
+  height: 100%;
+  flex-grow: 1;
+  background-color: black; /* Keep this as black */
+  overflow: visible;
+  cursor: grab; /* Show users they can drag the view */
+  position: relative;
+  z-index: 2; /* Higher than middle-layer */
 }
 
 /* Node styling */
@@ -148,7 +161,9 @@ path {
     bottom: 15px;
     right: 15px;
     padding: 6px;
+    z-index: 100; /* Make sure this is higher than other elements */
   }
+  
   
   .zoom-button, .reset-view-button {
     width: 38px;
@@ -163,11 +178,6 @@ path {
   
   .node text {
     font-size: 12px;
-    /* text-shadow: 
-      -1px -1px 0 white,
-      1px -1px 0 white,
-      -1px 1px 0 white,
-      1px 1px 0 white; */
   }
   
   .legend-container {
@@ -286,3 +296,31 @@ path {
   margin-top: 10px;
   width: 100%;
 }
+
+/* Middle layer styling removed - now handled within SVG */
+
+/* Dragable view indicator */
+.network-graph::after {
+  content: "Drag to move view";
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* Hide the indicator on mobile */
+@media (max-width: 768px) {
+  .network-graph::after {
+    display: none;
+  }
+}
+
+
+

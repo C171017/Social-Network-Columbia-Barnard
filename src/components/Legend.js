@@ -1,22 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './Legend.css';
 
-// Legend items for different color schemes
-const LEGEND_ITEMS = {
+// Standard color palette (d3-inspired)
+const COLOR_PALETTE = [
+  '#4285f4', '#ea4335', '#fbbc05', '#34a853', '#673ab7', '#9C27B0', '#00ACC1',
+  '#FF5722', '#795548', '#607D8B', '#3F51B5', '#009688', '#FFC107', '#8BC34A',
+  '#E91E63', '#9E9E9E'
+];
+
+// Static legend items for email sequence and schools
+const STATIC_LEGEND_ITEMS = {
   'email-sequence': [
     { color: '#FF0000', label: 'First Forwards' },
     { color: '#FF7F00', label: 'Second Forwards' },
     { color: '#000000', label: 'Direct Connection', isDashed: true }
-  ],
-  'major': [
-    { color: '#4285f4', label: 'Mechanical Engineering' },
-    { color: '#ea4335', label: 'Creative Writing' },
-    { color: '#fbbc05', label: 'Biomedical Engineering' },
-    { color: '#34a853', label: 'Psychology' },
-    { color: '#673ab7', label: 'Human Rights' },
-    { color: '#9C27B0', label: 'Comparative Literature & Society' },
-    { color: '#00ACC1', label: 'Computer Science' },
-    { color: '#9e9e9e', label: 'Unknown' }
   ],
   'school': [
     { color: '#4285f4', label: 'SEAS' },
@@ -28,6 +25,20 @@ const LEGEND_ITEMS = {
     { color: '#673ab7', label: '2025' },
     { color: '#4285f4', label: '2026' },
     { color: '#ea4335', label: '2027' },
+    { color: '#9e9e9e', label: 'Unknown' }
+  ]
+};
+
+// Initial common values for dynamic types
+const INITIAL_DYNAMIC_ITEMS = {
+  'major': [
+    { color: '#4285f4', label: 'Mechanical Engineering' },
+    { color: '#ea4335', label: 'Creative Writing' },
+    { color: '#fbbc05', label: 'Biomedical Engineering' },
+    { color: '#34a853', label: 'Psychology' },
+    { color: '#673ab7', label: 'Human Rights' },
+    { color: '#9C27B0', label: 'Comparative Literature & Society' },
+    { color: '#00ACC1', label: 'Computer Science' },
     { color: '#9e9e9e', label: 'Unknown' }
   ],
   'language': [
@@ -41,7 +52,74 @@ const LEGEND_ITEMS = {
 };
 
 const Legend = ({ colorBy }) => {
-  const currentItems = LEGEND_ITEMS[colorBy] || [];
+  const [legendItems, setLegendItems] = useState({
+    ...STATIC_LEGEND_ITEMS,
+    ...INITIAL_DYNAMIC_ITEMS
+  });
+
+  useEffect(() => {
+    // Load dynamic values from data files
+    const loadDynamicValues = async () => {
+      try {
+        // First attempt to load the data files with unique values
+        let majorData = [];
+        let languageData = [];
+        
+        try {
+          // Try to import dynamic data files
+          const majorModule = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
+          const languageModule = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
+          
+          majorData = majorModule.default || [];
+          languageData = languageModule.default || [];
+        } catch (error) {
+          console.warn('Dynamic data files not found, using default values');
+        }
+        
+        // Generate color maps for majors and languages
+        if (majorData.length > 0) {
+          const majorLegend = majorData.map((major, index) => ({
+            color: COLOR_PALETTE[index % COLOR_PALETTE.length],
+            label: major
+          }));
+          
+          // Always add Unknown
+          if (!majorData.includes('Unknown')) {
+            majorLegend.push({ color: '#9e9e9e', label: 'Unknown' });
+          }
+          
+          setLegendItems(prev => ({
+            ...prev,
+            major: majorLegend
+          }));
+        }
+        
+        if (languageData.length > 0) {
+          const languageLegend = languageData.map((language, index) => ({
+            color: COLOR_PALETTE[index % COLOR_PALETTE.length],
+            label: language
+          }));
+          
+          // Always add Unknown
+          if (!languageData.includes('Unknown')) {
+            languageLegend.push({ color: '#9e9e9e', label: 'Unknown' });
+          }
+          
+          setLegendItems(prev => ({
+            ...prev,
+            language: languageLegend
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading dynamic legend data:', error);
+      }
+    };
+    
+    loadDynamicValues();
+  }, []);
+
+  const currentItems = legendItems[colorBy] || [];
+
   const title = colorBy === 'email-sequence' 
     ? 'Email Sequence' 
     : `Color by ${colorBy.charAt(0).toUpperCase() + colorBy.slice(1)}`;

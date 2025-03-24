@@ -1,0 +1,181 @@
+{
+  "nodes": [
+    {
+      "id": "4101",
+      "major": "Mechanical Engineering ",
+      "school": "SEAS",
+      "year": "Unknown",
+      "language": "English",
+      "group": 2,
+      "sequenceNumber": 1
+    },
+    {
+      "id": "6679",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": 2
+    },
+    {
+      "id": "2103",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": 2
+    },
+    {
+      "id": "3344",
+      "major": "Creative Writing",
+      "school": "CC",
+      "year": "Unknown",
+      "language": "English, Greek, Spanish",
+      "group": 1,
+      "sequenceNumber": 1
+    },
+    {
+      "id": "3296",
+      "major": "Computer Science, Civil Engineering",
+      "school": "SEAS",
+      "year": "Unknown",
+      "language": "English, Mandarin, Fuzhounese",
+      "group": 1,
+      "sequenceNumber": 2
+    },
+    {
+      "id": "3574",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": 3
+    },
+    {
+      "id": "2204",
+      "major": "Psychology",
+      "school": "Barnard",
+      "year": "Unknown",
+      "language": "English, French, Mandarin",
+      "group": 3,
+      "sequenceNumber": 2
+    },
+    {
+      "id": "2221",
+      "major": "Political Science, Economics",
+      "school": "CC",
+      "year": "Unknown",
+      "language": "Spanish, English ",
+      "group": 3,
+      "sequenceNumber": 3
+    },
+    {
+      "id": "2146",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": 3
+    },
+    {
+      "id": "2288",
+      "major": "Political Science",
+      "school": "CC",
+      "year": "Unknown",
+      "language": "English, Spanish",
+      "group": 3,
+      "sequenceNumber": 4
+    },
+    {
+      "id": "2697",
+      "major": "Economics, Mathematics ",
+      "school": "CC",
+      "year": "Unknown",
+      "language": "English, Spanish",
+      "group": 3,
+      "sequenceNumber": 5
+    },
+    {
+      "id": "target2",
+      "major": "Human Rights, Comparative Literature & Society",
+      "school": "CC",
+      "year": "Unknown",
+      "language": "French, English, Spanish, Mandarin",
+      "group": 3,
+      "sequenceNumber": 1
+    },
+    {
+      "id": "target1",
+      "major": "Computer Science",
+      "school": "SEAS",
+      "year": "Unknown",
+      "language": "English, Mandarin",
+      "group": 3,
+      "sequenceNumber": 2
+    },
+    {
+      "id": "7169",
+      "major": "Cognitive Science",
+      "school": "GS",
+      "year": "Unknown",
+      "language": "English",
+      "group": 2,
+      "sequenceNumber": 1
+    },
+    {
+      "id": "2155",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": 2
+    }
+  ],
+  "links": [
+    {
+      "source": "4101",
+      "target": "6679",
+      "type": "first"
+    },
+    {
+      "source": "4101",
+      "target": "2103",
+      "type": "second"
+    },
+    {
+      "source": "3344",
+      "target": "4101",
+      "type": "first"
+    },
+    {
+      "source": "3344",
+      "target": "2103",
+      "type": "first"
+    },
+    {
+      "source": "2103",
+      "target": "3574",
+      "type": "first"
+    },
+    {
+      "source": "2221",
+      "target": "2146",
+      "type": "direct"
+    },
+    {
+      "source": "2288",
+      "target": "3296",
+      "type": "direct"
+    },
+    {
+      "source": "2697",
+      "target": "3296",
+      "type": "direct"
+    },
+    {
+      "source": "7169",
+      "target": "2155",
+      "type": "first"
+    }
+  ]
+}
