@@ -5,6 +5,8 @@ Added black border to mark the boundary.
 
 Added script to automatically load the data.
 
+(Gradually refining now, once the mechanism is well-developed. You can deploy it at any other institution.)
+
 ## 📖 Background  
 
 ### 🔍 Six Degrees of Separation & Small-World Experiment  
