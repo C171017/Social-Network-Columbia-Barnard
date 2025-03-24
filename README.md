@@ -1,5 +1,6 @@
 [Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
 Newest updates:
+
 Added black border to mark the boundary.
 
 Added script to automatically load the data.
