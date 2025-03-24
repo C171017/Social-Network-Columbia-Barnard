@@ -1,92 +1,43 @@
-# Columbia/Barnard Network Visualization
-
-A visualization tool for the Columbia/Barnard community to explore the "Six Degrees of Separation" experiment, showing how people are connected through email forwards.
-
 ## 📖 Background  
 
 ### 🔍 Six Degrees of Separation & Small-World Experiment  
 The **Six Degrees of Separation** theory proposes that any two people are connected through at most 6 social links. First introduced by **Frigyes Karinthy** in 1929, this idea suggests that a short chain of acquaintances can bridge vast social distances.  
 
-In the 1960s, **Stanley Milgram's Small-World Experiment** tested this theory by having participants pass letters to a target person through personal contacts. On average, it took **5 to 6 steps** to reach the recipient, supporting the concept of a highly interconnected world.  
+In the 1960s, **Stanley Milgram’s Small-World Experiment** tested this theory by having participants pass letters to a target person through personal contacts. On average, it took **5 to 6 steps** to reach the recipient, supporting the concept of a highly interconnected world.  
+
+---
 
 ## 🔗 About This Project  
 
-This project is a **replication study** within the **Columbia/Barnard community** focusing on smaller communities where there are fewer variables to consider (school affiliation, academic year, language).
+This project is a **replication study** with in **Columbia/Barnard community** focusing on smaller communities where there are less variables to concern. (**school affiliation, academic year, anguage**)  
 
-The experiment is testing how quickly messages can reach target individuals through email forwards in our community.
+The experiment is still **under development**, testing the most executable **mechanisms**.
 
-## 📊 Features
+## 🕵️‍♀️ Problem & Improvement
 
-- Interactive force-directed graph visualization using D3.js
-- Color nodes by different attributes (email sequence, major, school, year, language)
-- Zoom and pan controls for exploring the network
-- Automatic handling of multi-attribute nodes (multiple majors or languages)
-- Tooltips with detailed information about each person
-- Dynamic legend that updates based on the selected attribute
+* **Low Forward 1 conversion rate**  
 
-## 🔄 Data Import
+Guess 1. People didn't notice it
 
-The application can automatically import data from CSV files using the included processing script.
+Guess 2. People didn't open it
 
-### CSV Format
+* **Relatively Higher Forward 2 conversion rate**
 
-The CSV file should have the following headers:
+Guess 3. People are more willing to respond to email from friends: 2 > 1
 
-```
-Timestamp,School,Year (Class of ),Major,Languages You Speak (Rank by Frequency),UNI,Next Person(s) UNI
-```
+Current strategy: Expand the initial recipient pool & maintain high post converion rate.
 
-Example:
-```
-2/21/2025 11:18:44,SEAS,2027,Mechanical Engineering,English,sr4101,ss6679
-2/21/2025 16:09:21,CC,2027,Creative Writing,"English, Greek, Spanish",dk3344,"sr4101, tgz2103"
-```
+* **Potential Problem**
 
-### Processing Data
+Guess 4. The time to send email matters, people may not check email from Friday to Sunday
 
-1. Place your CSV file in the `data` folder or any location of your choice
-2. Run the processing script:
+(**Conversion rate = Responses / Emails Sent**)  
 
-```bash
-# Using npm script
-npm run process-data data/sample.csv
+## 🌚 Finding
 
-# Or directly with bash
-./script/processData.sh data/sample.csv
-```
+# Experiment Development History
 
-This will:
-1. Parse the CSV data
-2. Generate a network graph data structure
-3. Save it to `src/data/network_data.json`
-4. Extract unique majors and languages for the dynamic legend
-5. Save them to `src/data/unique_majors.json` and `src/data/unique_languages.json`
-
-### Automatic Color Assignment
-
-The visualization will automatically assign colors to new majors and languages that appear in your data. The color schemes are:
-
-- **Email Sequence**: Red for first forwards, orange for second forwards, black dashed lines for direct connections
-- **Schools**: SEAS (blue), CC (red), Barnard (green)
-- **Years**: 2025 (purple), 2026 (blue), 2027 (red)
-- **Dynamic colors**: For majors and languages not already defined in the system
-
-## 🚀 Development
-
-1. Install dependencies: `npm install`
-2. Process your data: `npm run process-data your-data.csv` 
-3. Start the development server: `npm start`
-4. Open [http://localhost:3000](http://localhost:3000) to view it in your browser
-
-## 🌐 Deployment
-
-The project is configured for GitHub Pages deployment:
-
-```bash
-npm run deploy
-```
-
-## 📝 Trial History Overview
+## 📊 Trial Conversion Rates  
 
 | Trial  | Date  | Target | Initial Recipients         | Conversion Step          | Success Rate  |
 |--------|-------|--------|---------------------------|--------------------------|--------------|
@@ -96,10 +47,63 @@ npm run deploy
 | Trial 4 | Mar 2   | 2  | Philosophy class          | Forward 1                | 1/79         |
 | Trial 5 | Mar 6   | 3  | Political science class   | Forward 1 / Forward 2    | 2/88 / 1/1   |
 
-(For more detailed trial information, see [Trials detail.txt](https://github.com/C171017/Social-Network-Columbia-Barnard-/blob/main/Trials%20detail.txt).)
+## 📝 Trial History Overview
 
-## 🛠️ Technologies
+(For a detailed email, see [Trials detail.txt](https://github.com/C171017/Social-Network-Columbia-Barnard-/blob/main/Trials%20detail.txt).)
 
-- React
-- D3.js
-- CSV Parser
+### 1️⃣ Trial 1
+**Date:** Thu, Feb 20  
+**Target:** 1  
+**Initial Recipients:** Random people  
+**Conversion Rate:**  
+- Forward 1: 0/50  
+
+---
+
+### 2️⃣ Trial 2
+**Date:** Fri, Feb 21  
+**Target:** 1  
+**Initial Recipients:** Students in an intro physics/humanities class  
+**Conversion Rate:**  
+- Forward 1: 2/73  
+- Forward 2: 1/2  
+
+**Changes Made:**  
+- Added a website link at the end of the email.  
+- At the time, the website only displayed basic text and was under construction.
+
+---
+
+### 3️⃣ Trial 3
+**Date:** Sat, Mar 1  
+**Target:** 2  
+**Initial Recipients:** Students from an intro sociology class  
+**Conversion Rate:**  
+- Forward 1: 1/23  
+
+**Changes Made:**  
+- Introduced emojis for a more engaging and informal tone.  
+- Adjusted email language to be more casual and conversational.
+
+---
+
+### 4️⃣ Trial 4
+**Date:** Sun, Mar 2  
+**Target:** 2  
+**Initial Recipients:** Students from a philosophy class  
+**Conversion Rate:**  
+- Forward 1: 1/79  
+
+**Changes Made:**  
+- Updated the website.  
+
+**Feedback Received:**  
+1. Many people didn't look up their email which may explains the big discrepancy between the conversion rate in 1st forward and 2nd.  
+2. Concerns were raised that the email could be perceived as stalking since it did not explicitly state that the target was a volunteer participant.  
+3. Lack of clarity led some recipients to think they received the email by mistake.
+
+---
+
+### 5️⃣ Trial 5
+**Target:** 3  
+(Additional details pending)
