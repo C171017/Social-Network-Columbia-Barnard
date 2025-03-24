@@ -1,4 +1,4 @@
-[Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
+[Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
 ## 📖 Background  
 
 ### 🔍 Six Degrees of Separation & Small-World Experiment  
