@@ -8,10 +8,8 @@ Added script to automatically load the data.
 (Gradually refining now, once the mechanism is well-developed. You can deploy it at any other institution.)
 
 Things need to be fixed
-1. Physics
-2. Label display logic
-3. Auto resize the container
-4. 
+1. Label display logic
+2. Auto resize the container
 
 ## 📖 Background  
 
