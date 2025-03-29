@@ -9,8 +9,8 @@ const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
 // Boundary settings - absolute padding in pixels around the visible area
-const BOUNDARY_PADDING_X = 300; // Horizontal padding
-const BOUNDARY_PADDING_Y = 200; // Vertical padding
+const BOUNDARY_PADDING_X = 300;
+const BOUNDARY_PADDING_Y = 200;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
@@ -19,161 +19,118 @@ const COLOR_PALETTE = [
   '#E91E63', '#9E9E9E'
 ];
 
-// Default color definitions
-const DEFAULT_COLOR_MAPS = {
-  major: {
-    "Mechanical Engineering": "#4285f4",
-    "Creative Writing": "#ea4335",
-    "Biomedical Engineering": "#fbbc05",
-    "Psychology": "#34a853",
-    "Human Rights": "#673ab7",
-    "Comparative Literature & Society": "#9C27B0",
-    "Computer Science": "#00ACC1",
-    "Unknown": "#9e9e9e"
-  },
-  school: {
-    "SEAS": "#4285f4",
-    "CC": "#ea4335",
-    "Barnard": "#34a853",
-    "Unknown": "#9e9e9e"
-  },
-  year: {
-    "2025": "#673ab7",
-    "2026": "#4285f4",
-    "2027": "#ea4335",
-    "Unknown": "#9e9e9e"
-  },
-  language: {
-    "French": "#4285f4",
-    "Spanish": "#ea4335",
-    "Mandarin": "#fbbc05",
-    "Greek": "#673ab7",
-    "English": "#34a853",
-    "Unknown": "#9e9e9e"
-  }
-};
-
 const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const svgRef = useRef();
   const [zoomLevel, setZoomLevel] = useState(ZOOM_DEFAULT);
   const zoomRef = useRef(null);
-  const [colorMaps, setColorMaps] = useState(DEFAULT_COLOR_MAPS);
+  const [colorMaps, setColorMaps] = useState({});
 
-  // Load dynamic color mappings based on data
+  // Load dynamic color mappings
   useEffect(() => {
     const generateDynamicColorMaps = async () => {
       try {
-        // Try to load pre-generated color maps
         let uniqueMajors = [];
         let uniqueLanguages = [];
+        let uniqueYears = [];
 
         try {
           const majorData = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
           const languageData = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
+          const yearData = await import('../data/unique_years.json').catch(() => ({ default: [] }));
 
           uniqueMajors = majorData.default || [];
           uniqueLanguages = languageData.default || [];
+          uniqueYears = yearData.default || [];
         } catch (error) {
-          console.warn('Dynamic data files not found, generating from network data');
-        }
-
-        // If no pre-generated data, extract from network data
-        if (uniqueMajors.length === 0 && data?.nodes) {
-          const majors = new Set();
-          data.nodes.forEach(node => {
-            if (node.major && node.major !== 'Unknown') {
-              node.major.split(',').forEach(major => {
-                majors.add(major.trim());
-              });
-            }
-          });
-          uniqueMajors = Array.from(majors);
-        }
-
-        if (uniqueLanguages.length === 0 && data?.nodes) {
-          const languages = new Set();
-          data.nodes.forEach(node => {
-            if (node.language && node.language !== 'Unknown') {
-              node.language.split(',').forEach(lang => {
-                languages.add(lang.trim());
-              });
-            }
-          });
-          uniqueLanguages = Array.from(languages);
+          console.warn('Dynamic data files not found');
         }
 
         // Generate color maps
+        const newColorMaps = {};
+
+        // Majors color map
         if (uniqueMajors.length > 0) {
-          const majorMap = { ...DEFAULT_COLOR_MAPS.major };
+          newColorMaps.major = {};
           uniqueMajors.forEach((major, index) => {
-            if (!majorMap[major]) {
-              majorMap[major] = COLOR_PALETTE[index % COLOR_PALETTE.length];
-            }
+            newColorMaps.major[major] = COLOR_PALETTE[index % COLOR_PALETTE.length];
           });
-
-          setColorMaps(prev => ({
-            ...prev,
-            major: majorMap
-          }));
         }
 
+        // Languages color map
         if (uniqueLanguages.length > 0) {
-          const languageMap = { ...DEFAULT_COLOR_MAPS.language };
+          newColorMaps.language = {};
           uniqueLanguages.forEach((language, index) => {
-            if (!languageMap[language]) {
-              languageMap[language] = COLOR_PALETTE[index % COLOR_PALETTE.length];
-            }
+            newColorMaps.language[language] = COLOR_PALETTE[index % COLOR_PALETTE.length];
           });
-
-          setColorMaps(prev => ({
-            ...prev,
-            language: languageMap
-          }));
         }
+
+        // Years color map
+        if (uniqueYears.length > 0) {
+          newColorMaps.year = {};
+          uniqueYears.forEach((year, index) => {
+            newColorMaps.year[year] = COLOR_PALETTE[index % COLOR_PALETTE.length];
+          });
+        }
+
+        // Schools color map (static)
+        newColorMaps.school = {
+          "SEAS": "#4285f4",
+          "CC": "#ea4335",
+          "Barnard": "#34a853",
+          "GS": "#673ab7",
+          "Unknown": "#9e9e9e"
+        };
+
+        setColorMaps(newColorMaps);
       } catch (error) {
-        console.error('Error generating dynamic color maps:', error);
+        console.error('Error generating color maps:', error);
       }
     };
 
     generateDynamicColorMaps();
-  }, [data]);
+  }, []);
 
   // Color schemes for different attributes
-  const colorSchemes = {
-    'email-sequence': () => '#5F6368',
-    'major': (d) => {
-      if (!d.major) return "#9e9e9e";
+  const getNodeColor = (d) => {
+    if (!colorMaps || !d) return "#9e9e9e";
 
-      // If multiple majors, use the first one for simple coloring
-      const firstMajor = d.major.split(',')[0].trim();
-      return colorMaps.major[firstMajor] || "#9e9e9e";
-    },
-    'school': (d) => colorMaps.school[d.school] || "#9e9e9e",
-    'year': (d) => colorMaps.year[d.year] || "#9e9e9e",
-    'language': (d) => {
-      const languages = d.language ? d.language.split(',').map(lang => lang.trim()) : [];
+    switch (colorBy) {
+      case 'email-sequence':
+        return '#5F6368';
 
-      // Try to find the first language with a defined color
-      for (const language of languages) {
-        if (colorMaps.language[language]) {
-          return colorMaps.language[language];
+      case 'major':
+        if (!d.major || !colorMaps.major) return "#9e9e9e";
+        const firstMajor = d.major.split(',')[0].trim();
+        return colorMaps.major[firstMajor] || "#9e9e9e";
+
+      case 'school':
+        if (!colorMaps.school) return "#9e9e9e";
+        return colorMaps.school[d.school] || "#9e9e9e";
+
+      case 'year':
+        if (!colorMaps.year) return "#9e9e9e";
+        return colorMaps.year[d.year] || "#9e9e9e";
+
+      case 'language':
+        if (!d.language || !colorMaps.language) return "#9e9e9e";
+        const languages = d.language.split(',').map(lang => lang.trim());
+
+        for (const language of languages) {
+          if (colorMaps.language[language]) {
+            return colorMaps.language[language];
+          }
         }
-      }
+        return "#9e9e9e";
 
-      // Fallback to original priority-based logic
-      if (languages.some(lang => lang.includes("French"))) return colorMaps.language["French"];
-      if (languages.some(lang => lang.includes("Spanish"))) return colorMaps.language["Spanish"];
-      if (languages.some(lang => lang.includes("Mandarin") || lang.includes("Chinese")))
-        return colorMaps.language["Mandarin"];
-      if (languages.some(lang => lang.includes("Greek"))) return colorMaps.language["Greek"];
-      if (languages.some(lang => lang === "English")) return colorMaps.language["English"];
-
-      return "#9e9e9e";
+      default:
+        return "#9e9e9e";
     }
   };
 
-  // Create multi-part nodes for multiple items (majors or languages)
+  // Create multi-part nodes for multiple items
   const createNodePath = (d) => {
+    if (!d || !colorMaps) return null;
+
     const createSegmentedNode = (items, colorMap) => {
       if (items.length === 0) return null;
 
@@ -207,36 +164,24 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     };
 
     if (colorBy === 'language' && d.language && d.language.includes(',')) {
-      const languages = d.language.split(',').map(lang => lang.trim());
+      const languages = d.language.split(',').map(lang => lang.trim())
+        .filter(lang => lang !== "English");
 
-      // Filter and normalize languages
-      const uniqueLanguages = [...new Set(
-        languages
-          .filter(lang => lang !== "English")
-          .map(lang => {
-            if (lang.includes("Chinese") || lang.includes("Mandarin")) return "Mandarin";
-            return lang;
-          })
-      )];
-
-      return createSegmentedNode(uniqueLanguages, colorMaps.language);
-
-    } else if (colorBy === 'major' && d.major && d.major.includes(',')) {
+      return createSegmentedNode(languages, colorMaps.language);
+    }
+    else if (colorBy === 'major' && d.major && d.major.includes(',')) {
       const majors = d.major.split(',').map(maj => maj.trim());
-      const uniqueMajors = [...new Set(majors)];
-
-      return createSegmentedNode(uniqueMajors, colorMaps.major);
+      return createSegmentedNode(majors, colorMaps.major);
     }
 
     return null;
   };
 
-  // Set up zoom and drag behavior
+  // Setup zoom behavior
   const setupZoom = (svg, g, width, height) => {
     const zoom = d3.zoom()
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
-        // Allow panning to reach the boundary area with extra space for dragging
         [-BOUNDARY_PADDING_X * 1.5, -BOUNDARY_PADDING_Y * 1.5],
         [width + BOUNDARY_PADDING_X * 1.5, height + BOUNDARY_PADDING_Y * 1.5]
       ])
@@ -244,10 +189,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         g.attr('transform', event.transform);
         setZoomLevel(Math.round(event.transform.k * 100) / 100);
       })
-      // Allow all mouse buttons for dragging (don't filter out main button)
       .filter(event => event.type !== 'dblclick' && !event.ctrlKey);
 
-    // Initialize with centered view at default zoom level
     const initialTransform = d3.zoomIdentity
       .translate(width / 2, height / 2)
       .scale(0.7)
@@ -257,7 +200,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       .call(zoom.transform, initialTransform)
       .call(zoom.touchable(true));
 
-    // Add visual indicator that view is draggable
     svg.style('cursor', 'grab')
       .on('mousedown.indicator', () => svg.style('cursor', 'grabbing'))
       .on('mouseup.indicator', () => svg.style('cursor', 'grab'));
@@ -265,7 +207,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     return zoom;
   };
 
-  // Handle zoom transformations
+  // Handle zoom buttons
   const handleZoom = (newZoom, duration = 300) => {
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
@@ -294,34 +236,30 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   };
 
   const handleResetView = () => {
-    // Reset view with default zoom and centered position
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
       const width = svgRef.current.parentElement.clientWidth;
       const height = window.innerHeight * 0.7;
 
-      // Create a transform that centers the view with default zoom
       const transform = d3.zoomIdentity
         .translate(width / 2, height / 2)
         .scale(0.7)
         .translate(-width / 2, -height / 2);
 
-      // Smooth transition to reset view
       svg.transition()
         .duration(500)
         .call(zoomRef.current.transform, transform)
-        .on('end', () => svg.style('cursor', 'grab')); // Reset cursor after animation
+        .on('end', () => svg.style('cursor', 'grab'));
     }
   };
 
-  // Add window resize handler
+  // Window resize handler
   useEffect(() => {
     const handleResize = () => {
       if (svgRef.current?.parentElement) {
         const svg = d3.select(svgRef.current);
         svg.attr('viewBox', `0 0 ${svgRef.current.parentElement.clientWidth} ${window.innerHeight * 0.7}`);
 
-        // Preserve zoom state
         if (zoomRef.current) {
           svg.select('g').attr('transform', d3.zoomTransform(svg.node()));
         }
@@ -332,7 +270,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Set up touch event handling for proper pinch zoom
+  // Touch event handler
   useEffect(() => {
     const handleTouch = (e) => {
       if (e.touches?.length >= 2) e.preventDefault();
@@ -348,45 +286,19 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     };
   }, []);
 
-
-
-  // Set up and update the visualization
+  // Main visualization effect
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return;
 
-    // Error boundary for visualization
     try {
-      // Get container dimensions for responsive sizing
       const containerWidth = svgRef.current.parentElement.clientWidth || 800;
-      const containerHeight = window.innerHeight * 0.7 || 600; // 70% of viewport height
+      const containerHeight = window.innerHeight * 0.7 || 600;
 
       const width = containerWidth;
       const height = containerHeight;
 
       // Clear previous SVG content
       d3.select(svgRef.current).selectAll('*').remove();
-
-      // Use provided data or fall back to sample data
-      const initialData = data && data.nodes && data.nodes.length > 0 ? data : {
-        nodes: [
-          { id: "4101", major: "Mechanical Engineering", school: "SEAS", year: "2027", language: "English", group: 1 },
-          { id: "3344", major: "Creative Writing", school: "CC", year: "2027", language: "English, Greek, Spanish", group: 1 },
-          { id: "6679", major: "Unknown", school: "Unknown", year: "Unknown", language: "Unknown", group: 1 },
-          { id: "2103", major: "Biomedical Engineering", school: "SEAS", year: "2027", language: "English", group: 1 },
-          { id: "3574", major: "Unknown", school: "Unknown", year: "Unknown", language: "Unknown", group: 1 },
-          { id: "2204", major: "Psychology", school: "Barnard", year: "2027", language: "English, French, Mandarin", group: 2 },
-          { id: "target2", major: "Human Rights,Comparative Literature & Society", school: "CC", year: "2026", language: "French, English, Spanish, Mandarin", group: 2 },
-          { id: "target1", major: "Computer Science", school: "SEAS", year: "2025", language: "English, Mandarin", group: 1 }
-        ],
-        links: [
-          { source: "4101", target: "6679", type: "first" },
-          { source: "4101", target: "2103", type: "first" },
-          { source: "3344", target: "4101", type: "first" },
-          { source: "3344", target: "2103", type: "first" },
-          { source: "2103", target: "3574", type: "second" },
-          { source: "2204", target: "target2", type: "direct" },
-        ]
-      };
 
       // Create SVG with responsive sizing
       const svg = d3.select(svgRef.current)
@@ -395,32 +307,31 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet');
 
-      // Create a group for the entire visualization that will be transformed during zoom
+      // Create a group for the visualization
       const g = svg.append('g');
-      // Add white middle layer as the second element in the group (middle layer)
+
+      // Add white background layer
       g.append('rect')
-      .attr('width', width + BOUNDARY_PADDING_X * 2)
-      .attr('height', height + BOUNDARY_PADDING_Y * 2)
-      .attr('x', -BOUNDARY_PADDING_X)
-      .attr('y', -BOUNDARY_PADDING_Y)
+        .attr('width', width + BOUNDARY_PADDING_X * 2)
+        .attr('height', height + BOUNDARY_PADDING_Y * 2)
+        .attr('x', -BOUNDARY_PADDING_X)
+        .attr('y', -BOUNDARY_PADDING_Y)
         .attr('rx', 10)
         .attr('fill', 'white')
         .attr('pointer-events', 'none');
 
-      // Set up zoom and pan functionality
-
+      // Set up zoom
       const zoom = setupZoom(svg, g, width, height);
-      // Store zoom reference for use in button handlers
       zoomRef.current = zoom;
 
-      // Add arrow markers for different link types
+      // Add arrow markers
       const defs = svg.append("defs");
 
-      // Add arrow marker for first type links (red)
+      // First type (red)
       defs.append("marker")
         .attr("id", "arrow-first")
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)  // Adjust to prevent overlap with node
+        .attr("refX", 60)
         .attr("refY", 0)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
@@ -429,11 +340,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr("d", "M0,-5L10,0L0,5")
         .attr("fill", "#FF0000");
 
-      // Add arrow marker for second type links (orange)
+      // Second type (orange)
       defs.append("marker")
         .attr("id", "arrow-second")
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)  // Adjust to prevent overlap with node
+        .attr("refX", 60)
         .attr("refY", 0)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
@@ -442,56 +353,123 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr("d", "M0,-5L10,0L0,5")
         .attr("fill", "#FF7F00");
 
-      // Add arrow marker for direct type links (black)
+      // Third type (yellow)
       defs.append("marker")
-        .attr("id", "arrow-direct")
+        .attr("id", "arrow-third")
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)  // Adjust to prevent overlap with node
+        .attr("refX", 60)
         .attr("refY", 0)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
         .attr("orient", "auto")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#000000");
+        .attr("fill", "#FFD700");
+
+      // Fourth type (green)
+      defs.append("marker")
+        .attr("id", "arrow-fourth")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#00FF00");
+
+      // Fifth type (blue)
+      defs.append("marker")
+        .attr("id", "arrow-fifth")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#0000FF");
+
+      // Sixth type (indigo)
+      defs.append("marker")
+        .attr("id", "arrow-sixth")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#4B0082");
+
+      // Seventh type (violet)
+      defs.append("marker")
+        .attr("id", "arrow-seventh")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#9400D3");
+
+      // Default marker for any other types
+      defs.append("marker")
+        .attr("id", "arrow-default")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#808080"); // Gray for any link type beyond seventh
 
 
-
-      // Set up the simulation with standard physics
-      const simulation = d3.forceSimulation(initialData.nodes)
-        // Link force with standard distance
-        .force('link', d3.forceLink(initialData.links)
+      // Set up the simulation
+      const simulation = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(data.links)
           .id(d => d.id)
-          .distance(250)) // Further increased distance to allow more spread
-
-        // Charge force - increased repulsion between nodes
-        .force('charge', d3.forceManyBody().strength(-600))
-
-        // Center force - pulls nodes toward the center, but much weaker
+          .distance(250))
+        .force('charge', d3.forceManyBody().strength(-50))
         .force('center', d3.forceCenter(width / 2, height / 2).strength(0.03))
+        .force('collision', d3.forceCollide().radius(30));
 
-        // Simple collision detection with larger radius
-        .force('collision', d3.forceCollide().radius(60));
-
-      // Create container for links
+      // Create links
       const linkGroup = g.append('g');
 
-      // Process the links (always create one line per link with arrow)
-      initialData.links.forEach(linkData => {
+      data.links.forEach(linkData => {
         try {
-          // Determine link color based on type
-          let linkColor = '#999';  // Default gray
-          if (linkData.type === 'first') linkColor = '#FF0000';  // Red
-          if (linkData.type === 'second') linkColor = '#FF7F00';  // Orange
-          if (linkData.type === 'direct') linkColor = '#000000';  // Black
-
-          // Determine arrow marker based on type
+          // Determine link color based on type using rainbow colors
+          let linkColor = '#808080';  // Default gray
+          if (linkData.type === 'first') linkColor = '#FF0000';    // Red
+          if (linkData.type === 'second') linkColor = '#FF7F00';   // Orange
+          if (linkData.type === 'third') linkColor = '#FFD700';    // Yellow
+          if (linkData.type === 'fourth') linkColor = '#00FF00';   // Green
+          if (linkData.type === 'fifth') linkColor = '#0000FF';    // Blue
+          if (linkData.type === 'sixth') linkColor = '#4B0082';    // Indigo
+          if (linkData.type === 'seventh') linkColor = '#9400D3';  // Violet
+      
+          // Determine arrow marker
           let arrowMarker = '';
           if (linkData.type === 'first') arrowMarker = 'url(#arrow-first)';
           if (linkData.type === 'second') arrowMarker = 'url(#arrow-second)';
-          if (linkData.type === 'direct') arrowMarker = 'url(#arrow-direct)';
-
-          // Create a single line with arrow marker for all connections
+          if (linkData.type === 'third') arrowMarker = 'url(#arrow-third)';
+          if (linkData.type === 'fourth') arrowMarker = 'url(#arrow-fourth)';
+          if (linkData.type === 'fifth') arrowMarker = 'url(#arrow-fifth)';
+          if (linkData.type === 'sixth') arrowMarker = 'url(#arrow-sixth)';
+          if (linkData.type === 'seventh') arrowMarker = 'url(#arrow-seventh)';
+          if (!arrowMarker && linkData.type && linkData.type !== 'direct') {
+            arrowMarker = 'url(#arrow-default)';  // Use default for any other types
+          }
+      
+          // Create line with arrow
           linkGroup.append('path')
             .datum(linkData)
             .attr('fill', 'none')
@@ -505,15 +483,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         }
       });
 
-      // Select all link lines for updates
       const link = linkGroup.selectAll('.link-line');
-
-
 
       // Create nodes
       const node = g.append('g')
         .selectAll('.node')
-        .data(initialData.nodes)
+        .data(data.nodes)
         .enter()
         .append('g')
         .attr('class', 'node')
@@ -522,25 +497,20 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .on('drag', dragged)
           .on('end', dragended));
 
-
-
-      // Create tooltip div for node information
-      // First, remove any existing tooltip to prevent duplicates
+      // Create tooltip
       d3.select('body').selectAll('.tooltip').remove();
-
       const tooltip = d3.select('body').append('div')
         .attr('class', 'tooltip')
         .style('opacity', 0);
 
-      // Add node circles or complex shapes
+      // Add node shapes and tooltips
       node.each(function (d) {
         const nodeGroup = d3.select(this);
         const nodePathInfo = createNodePath(d);
 
-        // Add mouseover/mouseout events to show tooltips
+        // Add tooltip events
         nodeGroup
           .on('mouseover', (event) => {
-            // Create tooltip content based on node data
             let html = `<h4>ID: ${d.id}</h4>`;
             html += `<p><strong>Major:</strong> ${d.major}</p>`;
             html += `<p><strong>School:</strong> ${d.school}</p>`;
@@ -568,11 +538,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
               });
           });
 
+        // Create node shapes
         if (nodePathInfo && (colorBy === 'major' || colorBy === 'language')) {
-          // If multiple items, create pie sections
+          // Multiple segment node
           const items = nodePathInfo.items;
           const colorMap = colorMaps[colorBy];
-
           const anglePerItem = (2 * Math.PI) / items.length;
 
           items.forEach((item, i) => {
@@ -591,36 +561,25 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           // Single color node
           nodeGroup.append('circle')
             .attr('r', d.id === 'target2' || d.id === 'target1' ? 35 : 30)
-            .attr('fill', colorSchemes[colorBy](d))
+            .attr('fill', getNodeColor(d))
             .attr('stroke', d.id === 'target2' ? '#FF3D00' : (d.id === 'target1' ? '#4285F4' : 'none'))
             .attr('stroke-width', d.id === 'target2' || d.id === 'target1' ? 3 : 0);
         }
 
-        // Replace text label with circle dot identifier
-        if (d.id === 'target2') {
-          // For Target2 node
+        // Add labels
+        if (d.id === 'target2' || d.id === 'target1') {
           nodeGroup.append('text')
             .attr('text-anchor', 'middle')
             .attr('dy', '0.35em')
             .attr('font-family', 'Arial')
-            .attr('font-size', '14px')
-            .text('Target2');
-
-        } else if (d.id === 'target1') {
-          // For Target1 node
-          nodeGroup.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dy', '0.35em')
-            .attr('font-family', 'Arial')
-            .attr('font-size', '16px')
-            .text('Target1');
-
+            .attr('font-size', d.id === 'target1' ? '16px' : '14px')
+            .text(d.id);
         } else {
-          // For regular nodes, add small center dot
+          // Center dot
           nodeGroup.append('circle')
-            .attr('r', 6);  // Size of the dot
+            .attr('r', 6);
 
-          // Add group indicator
+          // Group indicator
           nodeGroup.append('text')
             .attr('text-anchor', 'middle')
             .attr('dy', '0.7em')
@@ -630,77 +589,61 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         }
       });
 
-      // Path calculation for links - simplified to always draw a single line
+      // Path calculation for links
       function linkPath(d) {
-        // Safety check for undefined source or target
         if (!d || !d.source || !d.target) return "M0,0L0,0";
-
-        // Make sure coordinates exist
         if (typeof d.source.x === 'undefined' || typeof d.target.x === 'undefined') return "M0,0L0,0";
 
-        // Get appropriate node radii
         const sourceRadius = d.source.id === 'target2' || d.source.id === 'target1' ? 35 : 30;
         const targetRadius = d.target.id === 'target2' || d.target.id === 'target1' ? 35 : 30;
 
-        // Calculate the direction vector
         const dx = d.target.x - d.source.x;
         const dy = d.target.y - d.source.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Guard against zero distance
         if (dist === 0) return "M0,0L0,0";
 
-        // Calculate unit vectors
         const unitX = dx / dist;
         const unitY = dy / dist;
 
-        // Calculate start and end points adjusted by node radius
         const startX = d.source.x + (unitX * sourceRadius);
         const startY = d.source.y + (unitY * sourceRadius);
         const endX = d.target.x - (unitX * targetRadius);
         const endY = d.target.y - (unitY * targetRadius);
 
-        // Return a single line path
         return `M${startX},${startY}L${endX},${endY}`;
       }
 
       // Update positions during simulation
       simulation.on('tick', () => {
-        // Apply boundary constraints with fixed padding regardless of zoom level
+        // Apply boundary constraints
         node.each(d => {
-          // Get the appropriate node radius
           const nodeRadius = (d.id === 'target2' || d.id === 'target1') ? 35 : 30;
-
-          // Use fixed boundary padding regardless of zoom
-          // Add a small extra margin based on node radius to prevent nodes from being cut off
           const margin = nodeRadius + 5;
 
-          // Constrain x position: center area +/- padding
           d.x = Math.max(-BOUNDARY_PADDING_X + margin, Math.min(width + BOUNDARY_PADDING_X - margin, d.x));
-
-          // Constrain y position: center area +/- padding
           d.y = Math.max(-BOUNDARY_PADDING_Y + margin, Math.min(height + BOUNDARY_PADDING_Y - margin, d.y));
         });
 
-        // Update all link lines with appropriate paths - simplified since only one link type exists
+        // Update link paths
         link.attr('d', function (d) {
           try {
             return linkPath(d);
           } catch (error) {
             console.error("Error updating link path:", error);
-            return "M0,0L0,0"; // Return empty path on error
+            return "M0,0L0,0";
           }
         });
 
+        // Update node positions
         node.attr('transform', d => `translate(${d.x},${d.y})`);
       });
 
-      // Standard drag functions
+      // Drag handlers
       function dragstarted(event, d) {
-        // Don't trigger zoom when dragging nodes
         if (event.sourceEvent) {
           event.sourceEvent.stopPropagation();
-          event.sourceEvent.preventDefault(); // Prevent default touch actions
+          event.sourceEvent.preventDefault();
         }
 
         if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -715,42 +658,31 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       function dragended(event, d) {
         if (!event.active) simulation.alphaTarget(0);
-        // Keep the node fixed if dragged on mobile for better UX
         if (!isTouchDevice()) {
           d.fx = null;
           d.fy = null;
         }
       }
 
-      // Utility function to detect touch devices
       function isTouchDevice() {
         return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       }
 
-      // Place nodes in a way that centers the visualization
-      initialData.nodes.forEach(node => {
+      // Initial node positioning
+      data.nodes.forEach(node => {
         if (node.id === 'target2') {
-          // Place target2 in the top right 
           node.x = width + BOUNDARY_PADDING_X * 0.3;
           node.y = -BOUNDARY_PADDING_Y * 0.3;
-          // Fix position initially
           node.fx = node.x;
           node.fy = node.y;
         } else if (node.id === 'target1') {
-          // Place target1 in the bottom left
           node.x = -BOUNDARY_PADDING_X * 0.3;
           node.y = height + BOUNDARY_PADDING_Y * 0.3;
-          // Fix position initially
           node.fx = node.x;
           node.fy = node.y;
         } else {
-          // Place other nodes within visible area first, then gradually expand outward
-          // This helps keep the visualization more centered around the white middle layer
-          const distance = Math.random(); // 0 to 1
-          const angle = Math.random() * 2 * Math.PI; // 0 to 2π
-
-          // Calculate position using polar coordinates centered on the middle of the screen
-          // Nodes are distributed in a circle pattern, with higher density toward the center
+          const distance = Math.random();
+          const angle = Math.random() * 2 * Math.PI;
           const radius = Math.pow(distance, 0.8) * Math.min(width, height) * 0.9;
           node.x = width / 2 + radius * Math.cos(angle);
           node.y = height / 2 + radius * Math.sin(angle);
@@ -759,19 +691,19 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       // Release fixed positions after initial layout
       setTimeout(() => {
-        initialData.nodes.forEach(node => {
+        data.nodes.forEach(node => {
           if (node.id === 'target1' || node.id === 'target2') {
             node.fx = null;
             node.fy = null;
           }
         });
-        simulation.alpha(0.3).restart(); // Higher alpha value for more movement
+        simulation.alpha(0.3).restart();
       }, 2000);
+
     } catch (error) {
       console.error("Error rendering network visualization:", error);
     }
-  }, [colorBy, data]); // Re-render when colorBy or data changes
-
+  }, [colorBy, data, colorMaps]);
 
   const preventAndCall = (handler) => (e) => {
     e.preventDefault();
@@ -782,13 +714,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     <div className="network-container">
       <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
 
-      {/* Network visualization area */}
       <div className="visualization-area">
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
       </div>
 
-      {/* Zoom and drag controls */}
       <div className="zoom-controls">
         <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in"
           onTouchStart={preventAndCall(handleZoomIn)}>+</button>

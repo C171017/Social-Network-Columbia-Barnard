@@ -13,12 +13,18 @@ const STATIC_LEGEND_ITEMS = {
   'email-sequence': [
     { color: '#FF0000', label: 'First Forwards' },
     { color: '#FF7F00', label: 'Second Forwards' },
-    { color: '#000000', label: 'Direct Connection', isDashed: true }
+    { color: '#FFD700', label: 'Third Forwards' },
+    { color: '#00FF00', label: 'Fourth Forwards' },
+    { color: '#0000FF', label: 'Fifth Forwards' },
+    { color: '#4B0082', label: 'Sixth Forwards' },
+    { color: '#9400D3', label: 'Seventh Forwards' },
   ],
   'school': [
     { color: '#4285f4', label: 'SEAS' },
     { color: '#ea4335', label: 'CC' },
     { color: '#34a853', label: 'Barnard' },
+    { color: '#673ab7', label: 'GS' },
+    { color: '#9C27B0', label: 'TC' },
     { color: '#9e9e9e', label: 'Unknown' }
   ],
   'year': [
@@ -64,14 +70,18 @@ const Legend = ({ colorBy }) => {
         // First attempt to load the data files with unique values
         let majorData = [];
         let languageData = [];
+        let yearData = [];
         
         try {
           // Try to import dynamic data files
           const majorModule = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
           const languageModule = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
+          const yearModule = await import('../data/unique_years.json').catch(() => ({ default: [] }));
+
           
           majorData = majorModule.default || [];
           languageData = languageModule.default || [];
+          yearData = yearModule.default || [];
         } catch (error) {
           console.warn('Dynamic data files not found, using default values');
         }
@@ -108,6 +118,23 @@ const Legend = ({ colorBy }) => {
           setLegendItems(prev => ({
             ...prev,
             language: languageLegend
+          }));
+        }
+
+        if (yearData.length > 0) {
+          const yearLegend = yearData.map((year, index) => ({
+            color: COLOR_PALETTE[index % COLOR_PALETTE.length],
+            label: year
+          }));
+          
+          // Always add Unknown
+          if (!yearData.includes('Unknown')) {
+            yearLegend.push({ color: '#9e9e9e', label: 'Unknown' });
+          }
+          
+          setLegendItems(prev => ({
+            ...prev,
+            year: yearLegend
           }));
         }
       } catch (error) {
