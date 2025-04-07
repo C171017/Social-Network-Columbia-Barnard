@@ -438,8 +438,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .id(d => d.id)
           .distance(250))
         .force('charge', d3.forceManyBody().strength(-50))
-        .force('center', d3.forceCenter(width / 2, height / 2).strength(0.03))
-        .force('collision', d3.forceCollide().radius(30));
+        .force('center', d3.forceCenter(width / 2, height / 2).strength(0.00))
+        .force('collision', d3.forceCollide().radius(40));
 
       // Create links
       const linkGroup = g.append('g');
