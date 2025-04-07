@@ -120,3 +120,18 @@ Guess 4. The time to send email matters, people may not check email from Friday 
 ### 5️⃣ Trial 5
 **Target:** 3  
 (Additional details pending)
+
+
+
+### 6️⃣ Trial 6
+**Date:** Wed, Apr 2  
+**Target:** 4  
+**Initial Recipients:** Freshman
+**Conversion Rate:**  
+- Forward 1: 3/200  
+- Forward 2: 1/12
+**Complete Chain:**
+Amount: 1 Step: 2
+
+**Changes Made:**  
+- Email rewrite to be concise
