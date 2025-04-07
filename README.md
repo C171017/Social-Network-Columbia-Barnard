@@ -137,3 +137,4 @@ Amount: 1 Step: 2
 
 **Changes Made:**  
 - Email rewrite to be concise
+- Developed way to automatic add recipient by using tiny task(Windows)
