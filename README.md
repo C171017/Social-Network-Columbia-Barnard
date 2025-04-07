@@ -130,6 +130,7 @@ Guess 4. The time to send email matters, people may not check email from Friday 
 **Conversion Rate:**  
 - Forward 1: 3/200  
 - Forward 2: 1/12
+
 **Complete Chain:**
 Amount: 1 Step: 2
 
