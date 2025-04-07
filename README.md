@@ -59,6 +59,7 @@ Guess 4. The time to send email matters, people may not check email from Friday 
 | Trial 3 | Mar 1   | 2  | Sociology class           | Forward 1                | 1/23         |
 | Trial 4 | Mar 2   | 2  | Philosophy class          | Forward 1                | 1/79         |
 | Trial 5 | Mar 6   | 3  | Political science class   | Forward 1 / Forward 2    | 2/88 / 1/1   |
+| Trial 6 | Apr 2   | 4  | Freshman                  | Forward 1 / Forward 2    | 2/200 / 1/12   |
 
 ## 📝 Trial History Overview
 
