@@ -148,8 +148,8 @@ const Legend = ({ colorBy }) => {
   const currentItems = legendItems[colorBy] || [];
 
   const title = colorBy === 'email-sequence' 
-    ? 'Email Sequence' 
-    : `Color by ${colorBy.charAt(0).toUpperCase() + colorBy.slice(1)}`;
+    // ? 'Email Sequence' 
+    // : `Color by ${colorBy.charAt(0).toUpperCase() + colorBy.slice(1)}`;
 
   return (
     <div className="legend">

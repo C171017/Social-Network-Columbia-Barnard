@@ -12,7 +12,7 @@ const COLOR_OPTIONS = [
 const ControlPanel = ({ colorBy, setColorBy }) => (
   <div className="control-panel">
     <div className="filter-section">
-      <label htmlFor="color-select">Color nodes by:</label>
+      <label htmlFor="color-select"></label>
       <select 
         id="color-select" 
         value={colorBy} 

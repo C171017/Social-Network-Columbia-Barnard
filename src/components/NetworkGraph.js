@@ -9,8 +9,8 @@ const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
 // Fixed visualization area dimensions (regardless of screen size)
-const FIXED_AREA_WIDTH = 2000;
-const FIXED_AREA_HEIGHT = 2000;
+const FIXED_AREA_WIDTH = 1500;
+const FIXED_AREA_HEIGHT = 1500;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
