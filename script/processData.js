@@ -106,6 +106,104 @@ function createNetworkData(csvData) {
   };
 }
 
+// Function to merge nodes with the same 4-digit identifier
+function mergeNodesWithSame4DigitID(networkData) {
+  const { nodes, links } = networkData;
+  
+  // Group nodes by their 4-digit identifier
+  const nodesBy4DigitID = new Map();
+  const nodeIdMapping = new Map(); // Maps old node IDs to new node IDs
+  const targetIdsByDigitID = new Map(); // Tracks target IDs for each 4-digit ID
+  
+  nodes.forEach(node => {
+    // Extract 4-digit number from the node ID
+    const match = node.id.match(/\d{4}/);
+    const fourDigitID = match ? match[0] : node.id;
+    
+    // Check for target ID format
+    const targetMatch = node.id.match(/target\d+/);
+    const targetID = targetMatch ? targetMatch[0] : null;
+    
+    if (!nodesBy4DigitID.has(fourDigitID)) {
+      nodesBy4DigitID.set(fourDigitID, []);
+      targetIdsByDigitID.set(fourDigitID, new Set());
+    }
+    
+    if (targetID) {
+      targetIdsByDigitID.get(fourDigitID).add(targetID);
+    }
+    
+    nodesBy4DigitID.get(fourDigitID).push(node);
+    
+    // Create the new ID format: 4-digit ID (plus targets if any)
+    let newID = fourDigitID;
+    nodeIdMapping.set(node.id, newID); // Initial mapping, will be updated after all nodes are processed
+  });
+  
+  // Merge nodes with the same 4-digit ID
+  const mergedNodes = [];
+  
+  nodesBy4DigitID.forEach((nodesWithSameID, fourDigitID) => {
+    // Get all target IDs for this 4-digit ID
+    const targetIDs = Array.from(targetIdsByDigitID.get(fourDigitID));
+    
+    // Create the new ID with targets appended
+    let newID = fourDigitID;
+    if (targetIDs.length > 0) {
+      newID = `${fourDigitID}, ${targetIDs.join(', ')}`;
+    }
+    
+    // Update the node ID mappings with the final ID that includes targets
+    nodesWithSameID.forEach(node => {
+      nodeIdMapping.set(node.id, newID);
+    });
+    
+    if (nodesWithSameID.length === 1 && !targetIDs.length) {
+      // If there's only one node with this ID and no target IDs, just add it to the merged nodes with its original ID
+      mergedNodes.push({
+        ...nodesWithSameID[0],
+        id: fourDigitID
+      });
+    } else {
+      // Merge nodes with the same ID
+      const mergedNode = {
+        id: newID, // Use the new ID format with targets
+        major: [...new Set(nodesWithSameID.map(n => n.major).filter(m => m !== 'Unknown' && m))].join(', ') || 'Unknown',
+        school: [...new Set(nodesWithSameID.map(n => n.school).filter(s => s !== 'Unknown' && s))].join(', ') || 'Unknown',
+        year: [...new Set(nodesWithSameID.map(n => n.year).filter(y => y !== 'Unknown' && y))].join(', ') || 'Unknown',
+        language: [...new Set(nodesWithSameID.map(n => n.language).filter(l => l !== 'Unknown' && l))].join(', ') || 'Unknown',
+        group: nodesWithSameID[0].group // Use the group of the first node
+      };
+      
+      mergedNodes.push(mergedNode);
+    }
+  });
+  
+  // Update links to use the new node IDs
+  const updatedLinks = links.map(link => ({
+    source: nodeIdMapping.get(link.source) || link.source,
+    target: nodeIdMapping.get(link.target) || link.target,
+    type: link.type
+  }));
+  
+  // Remove duplicate links
+  const uniqueLinks = [];
+  const linkSet = new Set();
+  
+  updatedLinks.forEach(link => {
+    const linkKey = `${link.source}-${link.target}-${link.type}`;
+    if (!linkSet.has(linkKey)) {
+      linkSet.add(linkKey);
+      uniqueLinks.push(link);
+    }
+  });
+  
+  return {
+    nodes: mergedNodes,
+    links: uniqueLinks
+  };
+}
+
 // Extract unique values for legend
 function extractUniqueValues(nodes) {
   const uniqueMajors = new Set();
@@ -149,8 +247,12 @@ async function main() {
       console.log("Sample row:", JSON.stringify(csvData[0], null, 2));
     }
     
-    const networkData = createNetworkData(csvData);
+    let networkData = createNetworkData(csvData);
     console.log(`Generated network with ${networkData.nodes.length} nodes and ${networkData.links.length} links`);
+    
+    // Merge nodes with the same 4-digit ID
+    networkData = mergeNodesWithSame4DigitID(networkData);
+    console.log(`After merging, network has ${networkData.nodes.length} nodes and ${networkData.links.length} links`);
     
     // Write network data
     const outputFilePath = path.join(outputDir, 'network_data.json');

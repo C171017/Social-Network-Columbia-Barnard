@@ -9,8 +9,8 @@ const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
 // Fixed visualization area dimensions (regardless of screen size)
-const FIXED_AREA_WIDTH = 1600;
-const FIXED_AREA_HEIGHT = 1200;
+const FIXED_AREA_WIDTH = 2000;
+const FIXED_AREA_HEIGHT = 2000;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
@@ -447,9 +447,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .force('link', d3.forceLink(data.links)
           .id(d => d.id)
           .distance(250))
-        .force('charge', d3.forceManyBody().strength(-50))
+        .force('charge', d3.forceManyBody().strength(-70))
         .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
-        .force('collision', d3.forceCollide().radius(40));
+        .force('collision', d3.forceCollide().radius(50));
 
       // Create links
       const linkGroup = g.append('g');

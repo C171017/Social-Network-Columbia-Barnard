@@ -33,7 +33,7 @@
       "group": 2
     },
     {
-      "id": "target3, 2221",
+      "id": "2221, target3",
       "major": "Political Science, Economics",
       "school": "CC",
       "year": "2027",
@@ -49,8 +49,8 @@
       "group": 2
     },
     {
-      "id": "2288",
-      "major": "Political Science",
+      "id": "2288, target4",
+      "major": "Political Science, Political Science  ",
       "school": "CC",
       "year": "2028",
       "language": "English, Spanish",
@@ -73,7 +73,7 @@
       "group": 3
     },
     {
-      "id": "target2",
+      "id": "2595, target2",
       "major": "Human Rights, Comparative Literature & Society",
       "school": "CC",
       "year": "2026",
@@ -81,7 +81,7 @@
       "group": 2
     },
     {
-      "id": "target1",
+      "id": "2119, target1",
       "major": "Computer Science",
       "school": "SEAS",
       "year": "2025",
@@ -118,14 +118,6 @@
       "school": "SEAS",
       "year": "2028",
       "language": "English, Spanish, French",
-      "group": 4
-    },
-    {
-      "id": "target4, 2288",
-      "major": "Political Science  ",
-      "school": "CC",
-      "year": "2028",
-      "language": "English, Spanish",
       "group": 4
     },
     {
@@ -263,14 +255,6 @@
       "year": "Unknown",
       "language": "Unknown",
       "group": 4
-    },
-    {
-      "id": "target4",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
     }
   ],
   "links": [
@@ -301,11 +285,11 @@
     },
     {
       "source": "2204",
-      "target": "target2",
+      "target": "2595, target2",
       "type": "first"
     },
     {
-      "source": "target3, 2221",
+      "source": "2221, target3",
       "target": "2146",
       "type": "first"
     },
@@ -315,7 +299,7 @@
       "type": "first"
     },
     {
-      "source": "2288",
+      "source": "2288, target4",
       "target": "3295",
       "type": "first"
     },
@@ -356,11 +340,6 @@
     },
     {
       "source": "2116",
-      "target": "2148",
-      "type": "first"
-    },
-    {
-      "source": "2116",
       "target": "2132",
       "type": "first"
     },
@@ -396,12 +375,7 @@
     },
     {
       "source": "2871",
-      "target": "target4",
-      "type": "second"
-    },
-    {
-      "source": "2871",
-      "target": "2288",
+      "target": "2288, target4",
       "type": "second"
     }
   ]
