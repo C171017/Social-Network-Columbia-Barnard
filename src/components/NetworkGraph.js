@@ -8,9 +8,9 @@ const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
-// Boundary settings - absolute padding in pixels around the visible area
-const BOUNDARY_PADDING_X = 300;
-const BOUNDARY_PADDING_Y = 200;
+// Fixed visualization area dimensions (regardless of screen size)
+const FIXED_AREA_WIDTH = 1600;
+const FIXED_AREA_HEIGHT = 1200;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
@@ -178,12 +178,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   };
 
   // Setup zoom behavior
-  const setupZoom = (svg, g, width, height) => {
+  const setupZoom = (svg, g, containerWidth, containerHeight) => {
     const zoom = d3.zoom()
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
-        [-BOUNDARY_PADDING_X * 1.5, -BOUNDARY_PADDING_Y * 1.5],
-        [width + BOUNDARY_PADDING_X * 1.5, height + BOUNDARY_PADDING_Y * 1.5]
+        [-100, -100],
+        [FIXED_AREA_WIDTH + 100, FIXED_AREA_HEIGHT + 100]
       ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
@@ -191,10 +191,15 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       })
       .filter(event => event.type !== 'dblclick' && !event.ctrlKey);
 
+    // Calculate initial scale to fit the fixed area in the container
+    const scaleX = containerWidth / FIXED_AREA_WIDTH;
+    const scaleY = containerHeight / FIXED_AREA_HEIGHT;
+    const initialScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale for some margin
+    
     const initialTransform = d3.zoomIdentity
-      .translate(width / 2, height / 2)
-      .scale(0.7)
-      .translate(-width / 2, -height / 2);
+      .translate(containerWidth / 2, containerHeight / 2)
+      .scale(initialScale)
+      .translate(-FIXED_AREA_WIDTH / 2, -FIXED_AREA_HEIGHT / 2);
 
     svg.call(zoom)
       .call(zoom.transform, initialTransform)
@@ -238,13 +243,18 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const handleResetView = () => {
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
-      const width = svgRef.current.parentElement.clientWidth;
-      const height = window.innerHeight * 0.7;
-
+      const containerWidth = svgRef.current.parentElement.clientWidth;
+      const containerHeight = window.innerHeight * 0.7;
+      
+      // Calculate scale to fit the fixed area in the container
+      const scaleX = containerWidth / FIXED_AREA_WIDTH;
+      const scaleY = containerHeight / FIXED_AREA_HEIGHT;
+      const optimalScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale
+      
       const transform = d3.zoomIdentity
-        .translate(width / 2, height / 2)
-        .scale(0.7)
-        .translate(-width / 2, -height / 2);
+        .translate(containerWidth / 2, containerHeight / 2)
+        .scale(optimalScale)
+        .translate(-FIXED_AREA_WIDTH / 2, -FIXED_AREA_HEIGHT / 2);
 
       svg.transition()
         .duration(500)
@@ -310,12 +320,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       // Create a group for the visualization
       const g = svg.append('g');
 
-      // Add white background layer
+      // Add white background layer - now uses fixed dimensions
       g.append('rect')
-        .attr('width', width + BOUNDARY_PADDING_X * 2)
-        .attr('height', height + BOUNDARY_PADDING_Y * 2)
-        .attr('x', -BOUNDARY_PADDING_X)
-        .attr('y', -BOUNDARY_PADDING_Y)
+        .attr('width', FIXED_AREA_WIDTH)
+        .attr('height', FIXED_AREA_HEIGHT)
+        .attr('x', 0)
+        .attr('y', 0)
         .attr('rx', 10)
         .attr('fill', 'white')
         .attr('pointer-events', 'none');
@@ -432,13 +442,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr("fill", "#808080"); // Gray for any link type beyond seventh
 
 
-      // Set up the simulation
+      // Set up the simulation - using fixed center coordinates
       const simulation = d3.forceSimulation(data.nodes)
         .force('link', d3.forceLink(data.links)
           .id(d => d.id)
           .distance(250))
         .force('charge', d3.forceManyBody().strength(-50))
-        .force('center', d3.forceCenter(width / 2, height / 2).strength(0.00))
+        .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
         .force('collision', d3.forceCollide().radius(40));
 
       // Create links
@@ -616,13 +626,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       // Update positions during simulation
       simulation.on('tick', () => {
-        // Apply boundary constraints
+        // Apply boundary constraints to fixed area
         node.each(d => {
           const nodeRadius = (d.id === 'target2' || d.id === 'target1') ? 35 : 30;
           const margin = nodeRadius + 5;
 
-          d.x = Math.max(-BOUNDARY_PADDING_X + margin, Math.min(width + BOUNDARY_PADDING_X - margin, d.x));
-          d.y = Math.max(-BOUNDARY_PADDING_Y + margin, Math.min(height + BOUNDARY_PADDING_Y - margin, d.y));
+          // Constrain nodes to stay within the fixed area dimensions
+          d.x = Math.max(margin, Math.min(FIXED_AREA_WIDTH - margin, d.x));
+          d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
         });
 
         // Update link paths
@@ -668,24 +679,24 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       }
 
-      // Initial node positioning
+      // Initial node positioning within the fixed area
       data.nodes.forEach(node => {
         if (node.id === 'target2') {
-          node.x = width + BOUNDARY_PADDING_X * 0.3;
-          node.y = -BOUNDARY_PADDING_Y * 0.3;
+          node.x = FIXED_AREA_WIDTH * 0.9;  // Top right corner
+          node.y = FIXED_AREA_HEIGHT * 0.1;
           node.fx = node.x;
           node.fy = node.y;
         } else if (node.id === 'target1') {
-          node.x = -BOUNDARY_PADDING_X * 0.3;
-          node.y = height + BOUNDARY_PADDING_Y * 0.3;
+          node.x = FIXED_AREA_WIDTH * 0.1;  // Bottom left corner
+          node.y = FIXED_AREA_HEIGHT * 0.9;
           node.fx = node.x;
           node.fy = node.y;
         } else {
           const distance = Math.random();
           const angle = Math.random() * 2 * Math.PI;
-          const radius = Math.pow(distance, 0.8) * Math.min(width, height) * 0.9;
-          node.x = width / 2 + radius * Math.cos(angle);
-          node.y = height / 2 + radius * Math.sin(angle);
+          const radius = Math.pow(distance, 0.8) * Math.min(FIXED_AREA_WIDTH, FIXED_AREA_HEIGHT) * 0.4;
+          node.x = FIXED_AREA_WIDTH / 2 + radius * Math.cos(angle);
+          node.y = FIXED_AREA_HEIGHT / 2 + radius * Math.sin(angle);
         }
       });
 

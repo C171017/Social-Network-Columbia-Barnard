@@ -113,19 +113,19 @@
       "group": 4
     },
     {
-      "id": "target4, 2288",
-      "major": "Political Science  ",
-      "school": "CC",
-      "year": "2028",
-      "language": "English, Spanish",
-      "group": 4
-    },
-    {
       "id": "2871",
       "major": "Applied Physics",
       "school": "SEAS",
       "year": "2028",
       "language": "English, Spanish, French",
+      "group": 4
+    },
+    {
+      "id": "target4, 2288",
+      "major": "Political Science  ",
+      "school": "CC",
+      "year": "2028",
+      "language": "English, Spanish",
       "group": 4
     },
     {
@@ -397,6 +397,11 @@
     {
       "source": "2871",
       "target": "target4",
+      "type": "second"
+    },
+    {
+      "source": "2871",
+      "target": "2288",
       "type": "second"
     }
   ]
