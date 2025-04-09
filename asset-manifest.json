@@ -1,18 +1,18 @@
 {
   "files": {
     "main.css": "/Social-Network-Columbia-Barnard/static/css/main.62e97c20.css",
-    "main.js": "/Social-Network-Columbia-Barnard/static/js/main.fbcbab2a.js",
+    "main.js": "/Social-Network-Columbia-Barnard/static/js/main.818933bc.js",
     "static/js/504.0a35a1b9.chunk.js": "/Social-Network-Columbia-Barnard/static/js/504.0a35a1b9.chunk.js",
     "static/js/889.a531deac.chunk.js": "/Social-Network-Columbia-Barnard/static/js/889.a531deac.chunk.js",
     "static/js/952.8fb501f1.chunk.js": "/Social-Network-Columbia-Barnard/static/js/952.8fb501f1.chunk.js",
     "static/js/453.8eeb7963.chunk.js": "/Social-Network-Columbia-Barnard/static/js/453.8eeb7963.chunk.js",
     "index.html": "/Social-Network-Columbia-Barnard/index.html",
     "main.62e97c20.css.map": "/Social-Network-Columbia-Barnard/static/css/main.62e97c20.css.map",
-    "main.fbcbab2a.js.map": "/Social-Network-Columbia-Barnard/static/js/main.fbcbab2a.js.map",
+    "main.818933bc.js.map": "/Social-Network-Columbia-Barnard/static/js/main.818933bc.js.map",
     "453.8eeb7963.chunk.js.map": "/Social-Network-Columbia-Barnard/static/js/453.8eeb7963.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.62e97c20.css",
-    "static/js/main.fbcbab2a.js"
+    "static/js/main.818933bc.js"
   ]
 }
