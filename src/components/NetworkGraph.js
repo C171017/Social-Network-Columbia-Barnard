@@ -730,7 +730,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           aria-label="Network graph visualization - draggable view"></svg>
       </div>
 
-      <div className="zoom-controls">
+      {/* <div className="zoom-controls">
         <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in"
           onTouchStart={preventAndCall(handleZoomIn)}>+</button>
         <div className="zoom-level">{Math.round(zoomLevel * 100)}%</div>
@@ -738,7 +738,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           onTouchStart={preventAndCall(handleZoomOut)}>−</button>
         <button className="reset-view-button" onClick={handleResetView} aria-label="Reset view"
           onTouchStart={preventAndCall(handleResetView)}>⟳</button>
-      </div>
+      </div> */}
     </div>
   );
 };
