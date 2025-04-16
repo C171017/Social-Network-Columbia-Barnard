@@ -1,8 +1,11 @@
 [Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
 
-New Challenge: start to receive data that have the same 4 digits identifiers. Need to update processData.js
-
 Things need to be fixed
+
+Encontering people with the same 4 digits identifers. need to update processData.js
+
+Conversion rate remain low-considering a change in forwarding mechanism or shifting the focus of the study to the network structure solely.
+
 1. Label display logic
 2. Auto resize the container
 
