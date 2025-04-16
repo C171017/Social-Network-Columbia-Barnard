@@ -1,11 +1,6 @@
 [Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
-Newest updates:
 
-Added black border to mark the boundary.
-
-Added script to automatically load the data.
-
-(Gradually refining now, once the mechanism is well-developed. You can deploy it at any other institution.)
+New Challenge: start to receive data that have the same 4 digits identifiers. Need to update processData.js
 
 Things need to be fixed
 1. Label display logic
