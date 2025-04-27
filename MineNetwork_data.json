@@ -1,0 +1,308 @@
+{
+  "nodes": [
+    {
+      "id": "91784101",
+      "major": "Mechanical Engineering ",
+      "school": "SEAS",
+      "year": "2027",
+      "language": "English",
+      "group": "1"
+    },
+    {
+      "id": "71513344",
+      "major": "Creative Writing",
+      "school": "CC",
+      "year": "2027",
+      "language": "English, Greek, Spanish",
+      "group": "1"
+    },
+    {
+      "id": "12762103",
+      "major": "Biomedical Engineering",
+      "school": "SEAS",
+      "year": "2027",
+      "language": "English",
+      "group": "1"
+    },
+    {
+      "id": "166422119",
+      "major": "Computer Science",
+      "school": "SEAS",
+      "year": "2025",
+      "language": "English, Mandarin",
+      "group": "1"
+    },
+    {
+      "id": "132332204",
+      "major": "Psychology",
+      "school": "Barnard",
+      "year": "2027",
+      "language": "English, French, Mandarin",
+      "group": "2"
+    },
+    {
+      "id": "85832595",
+      "major": "Human Rights, Comparative Literature & Society",
+      "school": "CC",
+      "year": "2026",
+      "language": "French, English, Spanish, Mandarin",
+      "group": "2"
+    },
+    {
+      "id": "51962221",
+      "major": "Political Science, Economics",
+      "school": "CC",
+      "year": "2027",
+      "language": "Spanish, English ",
+      "group": "2,3"
+    },
+    {
+      "id": "26437169",
+      "major": "Cognitive Science",
+      "school": "GS",
+      "year": "2026",
+      "language": "English",
+      "group": "2"
+    },
+    {
+      "id": "29452288",
+      "major": "Political Science",
+      "school": "CC",
+      "year": "2028",
+      "language": "English, Spanish",
+      "group": "3,4"
+    },
+    {
+      "id": "28122697",
+      "major": "Economics, Mathematics ",
+      "school": "CC",
+      "year": "2027",
+      "language": "English, Spanish",
+      "group": "3"
+    },
+    {
+      "id": "123713296",
+      "major": "Computer Science, Civil Engineering",
+      "school": "SEAS",
+      "year": "2027",
+      "language": "English, Mandarin, Fuzhounese",
+      "group": "3"
+    },
+    {
+      "id": "89862111",
+      "major": "Sociology, Political Science",
+      "school": "CC",
+      "year": "2028",
+      "language": "English",
+      "group": "4"
+    },
+    {
+      "id": "104623380",
+      "major": "Financial Economics",
+      "school": "CC",
+      "year": "2028",
+      "language": "Arabic, English",
+      "group": "4"
+    },
+    {
+      "id": "131112116",
+      "major": "Chemistry",
+      "school": "CC",
+      "year": "2028",
+      "language": "English, Finnish",
+      "group": "4"
+    },
+    {
+      "id": "140752871",
+      "major": "Applied Physics",
+      "school": "SEAS",
+      "year": "2028",
+      "language": "English, Spanish, French",
+      "group": "4"
+    },
+    {
+      "id": "2002208",
+      "major": "Psychology",
+      "school": "Barnard",
+      "year": "2026",
+      "language": "English, Spanish, French",
+      "group": "5"
+    },
+    {
+      "id": "5842178",
+      "major": "Political Science, Sociology",
+      "school": "CC",
+      "year": "2028",
+      "language": "English, Spanish",
+      "group": "5"
+    },
+    {
+      "id": "40912111",
+      "major": "Physics",
+      "school": "Barnard",
+      "year": "2026",
+      "language": "English",
+      "group": "5"
+    },
+    {
+      "id": "149585926",
+      "major": "Mechanical Engineering",
+      "school": "SEAS",
+      "year": "2028",
+      "language": "English, Hindi, Gujarati",
+      "group": "5"
+    }
+  ],
+  "links": [
+    {
+      "source": "12762103",
+      "target": "177353574",
+      "type": "second"
+    },
+    {
+      "source": "71513344",
+      "target": "12762103",
+      "type": "first"
+    },
+    {
+      "source": "71513344",
+      "target": "91784101",
+      "type": "first"
+    },
+    {
+      "source": "91784101",
+      "target": "12762103",
+      "type": "first"
+    },
+    {
+      "source": "91784101",
+      "target": "63466679",
+      "type": "first"
+    },
+    {
+      "source": "26437169",
+      "target": "147722155",
+      "type": "first"
+    },
+    {
+      "source": "51962221",
+      "target": "61652146",
+      "type": "first"
+    },
+    {
+      "source": "132332204",
+      "target": "85832595",
+      "type": "first"
+    },
+    {
+      "source": "28122697",
+      "target": "123713296",
+      "type": "first"
+    },
+    {
+      "source": "29452288",
+      "target": "123713295",
+      "type": "first"
+    },
+    {
+      "source": "51962221",
+      "target": "61652146",
+      "type": "first"
+    },
+    {
+      "source": "140752871",
+      "target": "29452288",
+      "type": "second"
+    },
+    {
+      "source": "131112116",
+      "target": "140752871",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "144252148",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "6482219",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "77804886",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "35482161",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "138582294",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "157202148",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "179322132",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "128432104",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "158832112",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "53124861",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "93203681",
+      "type": "first"
+    },
+    {
+      "source": "131112116",
+      "target": "170792138",
+      "type": "first"
+    },
+    {
+      "source": "89862111",
+      "target": "125683474",
+      "type": "first"
+    },
+    {
+      "source": "149585926",
+      "target": "152542258",
+      "type": "second"
+    },
+    {
+      "source": "40912111",
+      "target": "149585926",
+      "type": "second"
+    },
+    {
+      "source": "2002208",
+      "target": "40912111",
+      "type": "first"
+    },
+    {
+      "source": "5842178",
+      "target": "159462326",
+      "type": "first"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+Timestamp,School,Year (Class of ),Major,Languages You Speak (Rank by Frequency),UNI,Next Person(s) UNI,Group,Target
+2025/02/21 11:18:44 AM AST,SEAS,2027,Mechanical Engineering ,English,410109178,667906346,1,
+2025/02/21 4:06:56 PM AST,SEAS,2027,Mechanical Engineering ,English,410109178,210301276,1,
+2025/02/21 4:09:21 PM AST,CC,2027,Creative Writing,"English, Greek, Spanish",334407151,410109178,1,
+2025/02/21 4:09:21 PM AST,CC,2027,Creative Writing,"English, Greek, Spanish",334407151,210301276,1,
+2025/02/21 6:32:48 PM AST,SEAS,2027,Biomedical Engineering,English,210301276,357417735,1,
+2025/03/01 2:01:00 PM AST,SEAS,2025,Computer Science,"English, Mandarin",211916642,,1,target1
+2025/03/01 1:06:35 PM AST,Barnard,2027,Psychology,"English, French, Mandarin",220413233,259508583,2,
+2025/03/01 2:00:00 PM AST,CC,2026,"Human Rights, Comparative Literature & Society","French, English, Spanish, Mandarin",259508583,,2,target2
+2025/03/02 3:33:56 PM AST,CC,2027,"Political Science, Economics","Spanish, English ",222105196,214606165,2,target3
+2025/03/02 4:07:58 PM AST,GS,2026,Cognitive Science,English,716902643,215514772,2,
+2025/03/02 3:33:56 PM AST,CC,2027,"Political Science, Economics","Spanish, English ",222105196,214606165,3,target3
+2025/03/06 5:14:43 PM AST,CC,2028,Political Science,"English, Spanish",228802945,329512371,3,target4
+2025/03/08 10:51:46 AM AST,CC,2027,"Economics, Mathematics ","English, Spanish",269702812,329612371,3,
+2025/03/09 7:22:48 AM AST,SEAS,2027,"Computer Science, Civil Engineering","English, Mandarin, Fuzhounese",329612371,,3,
+2025/04/01 8:26:06 PM AST,CC,2028,"Sociology, Political Science",English,211108986,347412568,4,
+2025/04/01 9:16:35 PM AST,CC,2028,Financial Economics,"Arabic, English",338010462, ,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,214814425,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,221900648,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,488607780,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,216103548,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,229413858,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,214815720,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,213217932,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,210412843,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,211215883,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,486105312,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,287114075,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,368109320,4,
+2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",211613111,213817079,4,
+2025/04/02 7:03:04 PM AST,CC,2028,Political Science  ,"English, Spanish",228802945, ,4,target4
+2025/04/02 10:39:48 PM AST,SEAS,2028,Applied Physics,"English, Spanish, French",287114075,228802945,4,target5
+2025/04/09 6:35:41 PM AST,Barnard,2026,Psychology,"English, Spanish, French",220800200,211104091,5,
+2025/04/09 9:10:42 PM AST,CC,2028,"Political Science, Sociology","English, Spanish",217800584,232615946,5,
+2025/04/09 10:37:16 PM AST,Barnard,2026,Physics,English,211104091,592614958,5,
+2025/04/13 7:43:19 PM AST,SEAS,2028,Mechanical Engineering,"English, Hindi, Gujarati",592614958,225815254,5,

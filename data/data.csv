@@ -3,16 +3,20 @@ Timestamp,School,Year (Class of ),Major,Languages You Speak (Rank by Frequency),
 2/21/2025 16:06:56,SEAS,2027,Mechanical Engineering ,English,4101,2103,1
 2/21/2025 16:09:21,CC,2027,Creative Writing,"English, Greek, Spanish",3344,"4101, 2103",1
 2/21/2025 18:32:48,SEAS,2027,Biomedical Engineering,English,2103,3574,1
-3/1/2025 13:06:35,Barnard,2027,Psychology,"English, French, Mandarin",2204,target2,2
-3/2/2025 15:33:56,CC,2027,"Political Science, Economics","Spanish, English ","target3, 2221",2146,"2, 3"
+3/1/2025 13:06:35,Barnard,2027,Psychology,"English, French, Mandarin",2204,2595,2
+3/2/2025 15:33:56,CC,2027,"Political Science, Economics","Spanish, English ","2221, target3",2146,"2, 3"
 3/2/2025 16:07:58,GS,2026,Cognitive Science,English,7169,2155,2
 3/6/2025 17:14:43,CC,2028,Political Science,"English, Spanish",2288,3295,3
 3/8/2025 10:51:46,CC,2027,"Economics, Mathematics ","English, Spanish",2697,3296,3
 3/9/2025 7:22:48,SEAS,2027,"Computer Science, Civil Engineering","English, Mandarin, Fuzhounese",3296,,3
-3/1/2025 14:00:00,CC,2026,"Human Rights, Comparative Literature & Society","French, English, Spanish, Mandarin",target2,,2
-3/1/2025 14:01:00,SEAS,2025,Computer Science,"English, Mandarin",target1,,1
+3/1/2025 14:00:00,CC,2026,"Human Rights, Comparative Literature & Society","French, English, Spanish, Mandarin","2595, target2",,2
+3/1/2025 14:01:00,SEAS,2025,Computer Science,"English, Mandarin","2119, target1",,1
 2025/04/01 8:26:06 PM AST,CC,2028,"Sociology, Political Science",English,2111,3474,4
 2025/04/01 9:16:35 PM AST,CC,2028,Financial Economics,"Arabic, English",3380, ,4
 2025/04/02 6:15:21 PM AST,CC,2028,Chemistry,"English, Finnish",2116,"2148, 2219, 4886, 2161, 2294, 2148, 2132, 2104, 2112, 4861, 2871, 3681, 2138",4
-2025/04/02 7:03:04 PM AST,CC,2028,Political Science  ,"English, Spanish","target4, 2288", ,4
-2025/04/02 10:39:48 PM AST,SEAS,2028,Applied Physics,"English, Spanish, French",2871,target4,4
+2025/04/02 10:39:48 PM AST,SEAS,2028,Applied Physics,"English, Spanish, French","2871, target5",2288,4
+2025/04/02 7:03:04 PM AST,CC,2028,Political Science  ,"English, Spanish","2288, target4", ,4
+2025/04/09 6:35:41 PM AST,Barnard,2026,Psychology,"English, Spanish, French",2208,2111,5
+2025/04/09 9:10:42 PM AST,CC,2028,"Political Science, Sociology","English, Spanish",2178,2326,5
+2025/04/09 10:37:16 PM AST,Barnard,2026,Physics,English,2111,5926,5
+2025/04/13 7:43:19 PM AST,SEAS,2028,Mechanical Engineering,"English, Hindi, Gujarati",5926,2258,5

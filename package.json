@@ -10,6 +10,7 @@
     "@testing-library/user-event": "^13.5.0",
     "csv-parser": "^3.2.0",
     "d3": "^7.9.0",
+    "fast-csv": "^5.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
@@ -44,5 +45,17 @@
   },
   "devDependencies": {
     "gh-pages": "^6.3.0"
+  },
+  "description": "[Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/) Newest updates:",
+  "main": "processData.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/C171017/Columbia-Barnard-Six-Degrees-of-Separation-Experiment.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/C171017/Columbia-Barnard-Six-Degrees-of-Separation-Experiment/issues"
   }
 }

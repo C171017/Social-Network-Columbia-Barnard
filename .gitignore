@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# custom mapping file for UNI encoding
+mapping.json
+
+rawdata.csv

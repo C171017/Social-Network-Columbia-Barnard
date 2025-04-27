@@ -1,382 +1,498 @@
 {
   "nodes": [
     {
-      "id": "4101",
+      "id": "410109178",
       "major": "Mechanical Engineering ",
       "school": "SEAS",
       "year": "2027",
       "language": "English",
-      "group": 1
+      "group": "1"
     },
     {
-      "id": "3344",
+      "id": "667906346",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "1"
+    },
+    {
+      "id": "210301276",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "1"
+    },
+    {
+      "id": "334407151",
       "major": "Creative Writing",
       "school": "CC",
       "year": "2027",
       "language": "English, Greek, Spanish",
-      "group": 1
+      "group": "1"
     },
     {
-      "id": "2103",
-      "major": "Biomedical Engineering",
-      "school": "SEAS",
-      "year": "2027",
-      "language": "English",
-      "group": 1
+      "id": "357417735",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "1"
     },
     {
-      "id": "2204",
-      "major": "Psychology",
-      "school": "Barnard",
-      "year": "2027",
-      "language": "English, French, Mandarin",
-      "group": 2
-    },
-    {
-      "id": "2221, target3",
-      "major": "Political Science, Economics",
-      "school": "CC",
-      "year": "2027",
-      "language": "Spanish, English ",
-      "group": 2
-    },
-    {
-      "id": "7169",
-      "major": "Cognitive Science",
-      "school": "GS",
-      "year": "2026",
-      "language": "English",
-      "group": 2
-    },
-    {
-      "id": "2288, target4",
-      "major": "Political Science, Political Science  ",
-      "school": "CC",
-      "year": "2028",
-      "language": "English, Spanish",
-      "group": 3
-    },
-    {
-      "id": "2697",
-      "major": "Economics, Mathematics ",
-      "school": "CC",
-      "year": "2027",
-      "language": "English, Spanish",
-      "group": 3
-    },
-    {
-      "id": "3296",
-      "major": "Computer Science, Civil Engineering",
-      "school": "SEAS",
-      "year": "2027",
-      "language": "English, Mandarin, Fuzhounese",
-      "group": 3
-    },
-    {
-      "id": "2595, target2",
-      "major": "Human Rights, Comparative Literature & Society",
-      "school": "CC",
-      "year": "2026",
-      "language": "French, English, Spanish, Mandarin",
-      "group": 2
-    },
-    {
-      "id": "2119, target1",
+      "id": "211916642",
       "major": "Computer Science",
       "school": "SEAS",
       "year": "2025",
       "language": "English, Mandarin",
-      "group": 1
+      "group": "1"
     },
     {
-      "id": "2111",
+      "id": "220413233",
+      "major": "Psychology",
+      "school": "Barnard",
+      "year": "2027",
+      "language": "English, French, Mandarin",
+      "group": "2"
+    },
+    {
+      "id": "259508583",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "2"
+    },
+    {
+      "id": "222105196",
+      "major": "Political Science, Economics",
+      "school": "CC",
+      "year": "2027",
+      "language": "Spanish, English ",
+      "group": "2,3"
+    },
+    {
+      "id": "214606165",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "2,3"
+    },
+    {
+      "id": "716902643",
+      "major": "Cognitive Science",
+      "school": "GS",
+      "year": "2026",
+      "language": "English",
+      "group": "2"
+    },
+    {
+      "id": "215514772",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "2"
+    },
+    {
+      "id": "228802945",
+      "major": "Political Science",
+      "school": "CC",
+      "year": "2028",
+      "language": "English, Spanish",
+      "group": "3,4"
+    },
+    {
+      "id": "329512371",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "3"
+    },
+    {
+      "id": "269702812",
+      "major": "Economics, Mathematics ",
+      "school": "CC",
+      "year": "2027",
+      "language": "English, Spanish",
+      "group": "3"
+    },
+    {
+      "id": "329612371",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "3"
+    },
+    {
+      "id": "211108986",
       "major": "Sociology, Political Science",
       "school": "CC",
       "year": "2028",
       "language": "English",
-      "group": 4
+      "group": "4"
     },
     {
-      "id": "3380",
+      "id": "347412568",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "338010462",
       "major": "Financial Economics",
       "school": "CC",
       "year": "2028",
       "language": "Arabic, English",
-      "group": 4
+      "group": "4"
     },
     {
-      "id": "2116",
+      "id": "211613111",
       "major": "Chemistry",
       "school": "CC",
       "year": "2028",
       "language": "English, Finnish",
-      "group": 4
+      "group": "4"
     },
     {
-      "id": "2871",
-      "major": "Applied Physics",
-      "school": "SEAS",
-      "year": "2028",
+      "id": "214814425",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "221900648",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "488607780",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "216103548",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "229413858",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "214815720",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "213217932",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "210412843",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "211215883",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "486105312",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "287114075",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "368109320",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "213817079",
+      "major": "Unknown",
+      "school": "Unknown",
+      "year": "Unknown",
+      "language": "Unknown",
+      "group": "4"
+    },
+    {
+      "id": "220800200",
+      "major": "Psychology",
+      "school": "Barnard",
+      "year": "2026",
       "language": "English, Spanish, French",
-      "group": 4
+      "group": "5"
     },
     {
-      "id": "6679",
+      "id": "211104091",
       "major": "Unknown",
       "school": "Unknown",
       "year": "Unknown",
       "language": "Unknown",
-      "group": 1
+      "group": "5"
     },
     {
-      "id": "3574",
+      "id": "217800584",
+      "major": "Political Science, Sociology",
+      "school": "CC",
+      "year": "2028",
+      "language": "English, Spanish",
+      "group": "5"
+    },
+    {
+      "id": "232615946",
       "major": "Unknown",
       "school": "Unknown",
       "year": "Unknown",
       "language": "Unknown",
-      "group": 1
+      "group": "5"
     },
     {
-      "id": "2146",
+      "id": "592614958",
       "major": "Unknown",
       "school": "Unknown",
       "year": "Unknown",
       "language": "Unknown",
-      "group": 2
+      "group": "5"
     },
     {
-      "id": "2155",
+      "id": "225815254",
       "major": "Unknown",
       "school": "Unknown",
       "year": "Unknown",
       "language": "Unknown",
-      "group": 2
-    },
-    {
-      "id": "3295",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 3
-    },
-    {
-      "id": "3474",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2148",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2219",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "4886",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2161",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2294",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2132",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2104",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2112",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "4861",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "3681",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
-    },
-    {
-      "id": "2138",
-      "major": "Unknown",
-      "school": "Unknown",
-      "year": "Unknown",
-      "language": "Unknown",
-      "group": 4
+      "group": "5"
     }
   ],
   "links": [
     {
-      "source": "4101",
-      "target": "6679",
-      "type": "first"
+      "source": "410109178",
+      "target": "667906346",
+      "type": "second",
+      "group": "1"
     },
     {
-      "source": "4101",
-      "target": "2103",
-      "type": "second"
+      "source": "410109178",
+      "target": "210301276",
+      "type": "second",
+      "group": "1"
     },
     {
-      "source": "3344",
-      "target": "4101",
-      "type": "first"
+      "source": "334407151",
+      "target": "410109178",
+      "type": "first",
+      "group": "1"
     },
     {
-      "source": "3344",
-      "target": "2103",
-      "type": "first"
+      "source": "334407151",
+      "target": "210301276",
+      "type": "first",
+      "group": "1"
     },
     {
-      "source": "2103",
-      "target": "3574",
-      "type": "third"
+      "source": "210301276",
+      "target": "357417735",
+      "type": "third",
+      "group": "1"
     },
     {
-      "source": "2204",
-      "target": "2595, target2",
-      "type": "first"
+      "source": "220413233",
+      "target": "259508583",
+      "type": "first",
+      "group": "2"
     },
     {
-      "source": "2221, target3",
-      "target": "2146",
-      "type": "first"
+      "source": "222105196",
+      "target": "214606165",
+      "type": "first",
+      "group": "2"
     },
     {
-      "source": "7169",
-      "target": "2155",
-      "type": "first"
+      "source": "716902643",
+      "target": "215514772",
+      "type": "first",
+      "group": "2"
     },
     {
-      "source": "2288, target4",
-      "target": "3295",
-      "type": "first"
+      "source": "222105196",
+      "target": "214606165",
+      "type": "first",
+      "group": "3"
     },
     {
-      "source": "2697",
-      "target": "3296",
-      "type": "first"
+      "source": "228802945",
+      "target": "329512371",
+      "type": "first",
+      "group": "3"
     },
     {
-      "source": "2111",
-      "target": "3474",
-      "type": "first"
+      "source": "269702812",
+      "target": "329612371",
+      "type": "first",
+      "group": "3"
     },
     {
-      "source": "2116",
-      "target": "2148",
-      "type": "first"
+      "source": "211108986",
+      "target": "347412568",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2219",
-      "type": "first"
+      "source": "211613111",
+      "target": "214814425",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "4886",
-      "type": "first"
+      "source": "211613111",
+      "target": "221900648",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2161",
-      "type": "first"
+      "source": "211613111",
+      "target": "488607780",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2294",
-      "type": "first"
+      "source": "211613111",
+      "target": "216103548",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2132",
-      "type": "first"
+      "source": "211613111",
+      "target": "229413858",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2104",
-      "type": "first"
+      "source": "211613111",
+      "target": "214815720",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2112",
-      "type": "first"
+      "source": "211613111",
+      "target": "213217932",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "4861",
-      "type": "first"
+      "source": "211613111",
+      "target": "210412843",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2871",
-      "type": "first"
+      "source": "211613111",
+      "target": "211215883",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "3681",
-      "type": "first"
+      "source": "211613111",
+      "target": "486105312",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2116",
-      "target": "2138",
-      "type": "first"
+      "source": "211613111",
+      "target": "287114075",
+      "type": "first",
+      "group": "4"
     },
     {
-      "source": "2871",
-      "target": "2288, target4",
-      "type": "second"
+      "source": "211613111",
+      "target": "368109320",
+      "type": "first",
+      "group": "4"
+    },
+    {
+      "source": "211613111",
+      "target": "213817079",
+      "type": "first",
+      "group": "4"
+    },
+    {
+      "source": "287114075",
+      "target": "228802945",
+      "type": "second",
+      "group": "4"
+    },
+    {
+      "source": "220800200",
+      "target": "211104091",
+      "type": "first",
+      "group": "5"
+    },
+    {
+      "source": "217800584",
+      "target": "232615946",
+      "type": "first",
+      "group": "5"
+    },
+    {
+      "source": "211104091",
+      "target": "592614958",
+      "type": "second",
+      "group": "5"
+    },
+    {
+      "source": "592614958",
+      "target": "225815254",
+      "type": "third",
+      "group": "5"
     }
   ]
 }
