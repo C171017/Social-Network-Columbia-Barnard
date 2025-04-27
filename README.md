@@ -1,5 +1,75 @@
 [Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
 
+How the current CSV → network-JSON script works
+
+This is a plain-English walkthrough of the algorithm we have right now (before the 9-digit-ID upgrade).
+You can drop it straight into README.md.
+
+⸻
+
+1.  Pre-processing
+	1.	Read the CSV (out.csv) into memory.
+	2.	Sort rows
+	•	first by Group (ascending 1 → 2 → 3 …),
+	•	then within each group by timestamp, newest first (so the most recent activity is processed first).
+
+⸻
+
+2.  Per-row handling (inside each group)
+
+For every unprocessed row we do:
+
+Step	Action
+a. Start / reset a chain pointer	We store the row’s UNI (the sender) in a single “container” variable.
+This variable always points to the node we’re currently following backward through the chain.	
+b. Create a link	A JSON link object is written:
+{ "source": current UNI, "target": Next UNI, "type": "first" }	
+c. Bump the previous link in this chain	If we already created a link in this chain during the previous iteration, we upgrade its "type" one level (first → second → third → …).
+d. Mark the row processed	So we won’t touch it again.
+e. Advance the pointer	The container now holds this row’s UNI (the sender).
+f. Look-back search	We scan earlier rows (still within the same group, older timestamps) until we find the next row whose Next UNI equals the container.
+If we find one, we go back to b with that matching row.	
+If none is found, we treat the next “newest unprocessed row” as the start of a new chain.	
+
+3.  Moving on
+
+When every row in the current group is flagged “processed,” we jump to the next group and repeat the whole routine.
+
+⸻
+
+What the mechanism gets right
+	•	Simple chains (A → B → C → D) are labelled neatly:
+	•	A→B = first, B→C = second, C→D = third…
+	•	Processing newest-first means we never miss the latest forwarding events.
+	•	The code path is O(n²) in the worst case but works fine on classroom-sized CSVs.
+
+⸻
+
+Known flaws & edge-case trouble
+
+Category	What can go wrong	Result
+Branching (fan-out / fan-in)	The same sender forwards to two different receivers in separate rows or two different senders forward to the same receiver.	Duplicate “first” links on parallel branches; depth counts (first/second/ …) no longer reflect real hop distance.
+Loops / cycles	Rows create a loop like A→B, B→A, or longer cycles.	Link types get assigned in reverse order (newer link becomes second, older stays first). A longer loop can cause excessive bumping or even an endless look-back without a “visited” guard.
+Single global pointer	Only one “container” variable tracks the last link. When two chains merge, the algorithm can’t tell which previous link belongs to which chain.	Depth bumps the wrong edge, giving mixed-up first/second/third labels.
+No cap for >10 hops	We only have typeNames = ["first", …, "tenth"].	An 11-step chain silently stops bumping at “tenth”.
+Performance on large files	Each look-back is a linear scan.	O(n²) runtime could bite if the CSV grows to tens of thousands of rows.
+Upcoming 9-digit IDs	Code still assumes 4-digit strings in a few helper functions.	Will break merges and node look-ups until updated.
+
+
+
+⸻
+
+Summary
+
+The current script is fine for straight, non-branching forwarding chains and modest datasets.
+To handle real-world data—with possible branches, merges, and loops—we’ll need to:
+	1.	Track multiple active chains at once (e.g., a map from current node → last link).
+	2.	Keep a visited-node set per chain to stop infinite cycles.
+	3.	Treat 9-digit IDs everywhere (string keys, no length assumption).
+	4.	Consider a true graph traversal (BFS/DFS) if we ever want iron-clad depth labels.
+
+
+
 Things need to be fixed
 
 Encontering people with the same 4 digits identifers. need to update processData.js
