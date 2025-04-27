@@ -1,103 +1,111 @@
+⸻
+
+🔗 Social Network Visualization
+
 [Click here to see the Visualization](https://c171017.github.io/Social-Network-Columbia-Barnard/)
 
-How the current CSV → network-JSON script works
+data process demo
 
-This is a plain-English walkthrough of the algorithm we have right now (before the 9-digit-ID upgrade).
-You can drop it straight into README.md.
+[![Watch the demo](https://img.youtube.com/vi/xUFHHwJHPC0/hqdefault.jpg)](https://youtu.be/xUFHHwJHPC0)
+⸻
+
+📖 Background
+
+🔍 Six Degrees of Separation & Small-World Experiment
+
+The Six Degrees of Separation theory proposes that any two people are connected through at most 6 social links. First introduced by Frigyes Karinthy in 1929, this idea suggests that a short chain of acquaintances can bridge vast social distances.
+
+In the 1960s, Stanley Milgram’s Small-World Experiment tested this theory by having participants pass letters to a target person through personal contacts. On average, it took 5 to 6 steps to reach the recipient, supporting the concept of a highly interconnected world.
 
 ⸻
 
-1.  Pre-processing
-	1.	Read the CSV (out.csv) into memory.
-	2.	Sort rows
-	•	first by Group (ascending 1 → 2 → 3 …),
-	•	then within each group by timestamp, newest first (so the most recent activity is processed first).
+🔗 About This Project
+
+This project is a replication study within the Columbia/Barnard community, focusing on a smaller, controlled social network.
+We explore the structure of connections based on variables such as school affiliation, academic year, and language.
+
+The experiment is still under development, testing different forwarding mechanisms and network behaviors.
 
 ⸻
 
-2.  Per-row handling (inside each group)
+🛠 Data Processing Pipeline
 
-For every unprocessed row we do:
+1. convert.js – Pre-Cleaning & ID Encoding
 
-Step	Action
-a. Start / reset a chain pointer	We store the row’s UNI (the sender) in a single “container” variable.
-This variable always points to the node we’re currently following backward through the chain.	
-b. Create a link	A JSON link object is written:
-{ "source": current UNI, "target": Next UNI, "type": "first" }	
-c. Bump the previous link in this chain	If we already created a link in this chain during the previous iteration, we upgrade its "type" one level (first → second → third → …).
-d. Mark the row processed	So we won’t touch it again.
-e. Advance the pointer	The container now holds this row’s UNI (the sender).
-f. Look-back search	We scan earlier rows (still within the same group, older timestamps) until we find the next row whose Next UNI equals the container.
-If we find one, we go back to b with that matching row.	
-If none is found, we treat the next “newest unprocessed row” as the start of a new chain.	
+convert.js prepares raw data for graph generation by:
 
-3.  Moving on
+Stage	What happens
+0. Run it	node convert.js rawdata.csv → outputs out.csv.
+1. Collision-free UNI encoding	Converts ab1234, cde9876 into unique 9-digit IDs like 123404217 using mapping.json.
+2. Row “explosion”	Expands rows with multiple groups or receivers into separate rows, each with one group and one Next UNI.
+3. Timestamp parsing	Parses YYYY/MM/DD HH:MM:SS AM/PM AST timestamps for proper sorting.
+4. Sorting	Rows are sorted by Group and then by timestamp (oldest → newest).
+5. Output	Writes the cleaned, sorted data to out.csv.
 
-When every row in the current group is flagged “processed,” we jump to the next group and repeat the whole routine.
-
-⸻
-
-What the mechanism gets right
-	•	Simple chains (A → B → C → D) are labelled neatly:
-	•	A→B = first, B→C = second, C→D = third…
-	•	Processing newest-first means we never miss the latest forwarding events.
-	•	The code path is O(n²) in the worst case but works fine on classroom-sized CSVs.
+Why this step is needed:
+	•	Ensures unique 9-digit IDs for every UNI.
+	•	Simplifies multi-group and multi-recipient rows.
+	•	Guarantees a deterministic order for further processing.
 
 ⸻
 
-Known flaws & edge-case trouble
+2. processData.js – Graph Building
 
-Category	What can go wrong	Result
-Branching (fan-out / fan-in)	The same sender forwards to two different receivers in separate rows or two different senders forward to the same receiver.	Duplicate “first” links on parallel branches; depth counts (first/second/ …) no longer reflect real hop distance.
-Loops / cycles	Rows create a loop like A→B, B→A, or longer cycles.	Link types get assigned in reverse order (newer link becomes second, older stays first). A longer loop can cause excessive bumping or even an endless look-back without a “visited” guard.
-Single global pointer	Only one “container” variable tracks the last link. When two chains merge, the algorithm can’t tell which previous link belongs to which chain.	Depth bumps the wrong edge, giving mixed-up first/second/third labels.
-No cap for >10 hops	We only have typeNames = ["first", …, "tenth"].	An 11-step chain silently stops bumping at “tenth”.
-Performance on large files	Each look-back is a linear scan.	O(n²) runtime could bite if the CSV grows to tens of thousands of rows.
-Upcoming 9-digit IDs	Code still assumes 4-digit strings in a few helper functions.	Will break merges and node look-ups until updated.
+This script transforms out.csv into src/data/network_data.json for visualization.
+
+🔄 Steps:
+	1.	Read & Sort CSV
+	•	Rows sorted by Group → Timestamp.
+	•	Each row: one sender (UNI), one receiver (Next UNI or blank).
+	2.	Build the Graph
+	•	Each unique 9-digit ID = a node.
+	•	Merges duplicate nodes; combines all Group values like "2,3".
+	•	Each row becomes a directed edge {src, tgt, group}.
+	3.	Depth Labelling per Group
+For each group:
+	•	Build its sub-graph.
+	•	Collapse cycles using Tarjan SCC → each cycle becomes a single unit.
+	•	Compute hop count for edges with BFS.
+	•	Assign first, second, … tenth (cap at tenth).
+	4.	Write JSON
+	•	Ensures src/data/ exists.
+	•	Outputs:
+
+{
+  "nodes": [ { id, major, school, year, language, group }, … ],
+  "links": [ { source, target, type, group }, … ]
+}
 
 
 
 ⸻
 
-Summary
+💡 Why This Works:
+	•	Per-group hop counters reset, so chains in different groups start fresh.
+	•	Cycles are compressed to a single hop to prevent infinite loops.
+	•	Fast: linear-time performance with Tarjan + BFS, even with branches/merges.
 
-The current script is fine for straight, non-branching forwarding chains and modest datasets.
-To handle real-world data—with possible branches, merges, and loops—we’ll need to:
-	1.	Track multiple active chains at once (e.g., a map from current node → last link).
-	2.	Keep a visited-node set per chain to stop infinite cycles.
-	3.	Treat 9-digit IDs everywhere (string keys, no length assumption).
-	4.	Consider a true graph traversal (BFS/DFS) if we ever want iron-clad depth labels.
+⸻
 
+🚀 Visualization & Demo
 
+(Demo video – will update later)
 
+⸻
 
-Things need to be fixed
+📂 Data Process Demo
+	1.	Start with rawdata.csv – formatted like data.csv but includes real UNI values (not public for privacy).
+	2.	Run: node convert.js rawdata.csv → creates out.csv.
+	3.	Run: node processData.js out.csv → outputs network_data.json.
 
-Encontering people with the same 4 digits identifers. need to update processData.js
+⸻
 
-Conversion rate remain low-considering a change in forwarding mechanism or shifting the focus of the study to the network structure solely.
+⚠ Future Improvements
+	•	Consider changing the forwarding mechanism or shifting focus to purely network structure to improve participation/conversion.
+	•	Improve label display logic and enable auto-resize of the container.
 
-1. Label display logic
-2. Auto resize the container
+⸻
 
-## Data Process Demo
-
-[![Watch the demo](https://img.youtube.com/vi/cU5vb4ojLHo/hqdefault.jpg)](https://youtu.be/cU5vb4ojLHo)
-
-## 📖 Background  
-
-### 🔍 Six Degrees of Separation & Small-World Experiment  
-The **Six Degrees of Separation** theory proposes that any two people are connected through at most 6 social links. First introduced by **Frigyes Karinthy** in 1929, this idea suggests that a short chain of acquaintances can bridge vast social distances.  
-
-In the 1960s, **Stanley Milgram’s Small-World Experiment** tested this theory by having participants pass letters to a target person through personal contacts. On average, it took **5 to 6 steps** to reach the recipient, supporting the concept of a highly interconnected world.  
-
----
-
-## 🔗 About This Project  
-
-This project is a **replication study** with in **Columbia/Barnard community** focusing on smaller communities where there are less variables to concern. (**school affiliation, academic year, anguage**)  
-
-The experiment is still **under development**, testing the most executable **mechanisms**.
 
 ## 🕵️‍♀️ Problem & Improvement
 
