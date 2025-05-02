@@ -3,14 +3,37 @@ import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
 import './NetworkGraph.css';
 
+function buildGroups(nodes, links) {
+  const adj = new Map(nodes.map(n => [n.id, []]));
+  links.forEach(l => {
+    adj.get(l.source.id ?? l.source).push(l.target.id ?? l.target);
+    adj.get(l.target.id ?? l.target).push(l.source.id ?? l.source);
+  });
+
+  let current = 0;
+  const groupMap = new Map();          // node-id ➜ group #
+  nodes.forEach(n => {
+    if (groupMap.has(n.id)) return;
+    const stack = [n.id];
+    while (stack.length) {
+      const id = stack.pop();
+      if (groupMap.has(id)) continue;
+      groupMap.set(id, current);
+      adj.get(id).forEach(nei => stack.push(nei));
+    }
+    current += 1;
+  });
+  return groupMap;                     // use groupMap.get(node.id)
+}
+
 // Define zoom settings
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
 // Fixed visualization area dimensions (regardless of screen size)
-const FIXED_AREA_WIDTH = 1500;
-const FIXED_AREA_HEIGHT = 1500;
+const FIXED_AREA_WIDTH = 15000;
+const FIXED_AREA_HEIGHT = 15000;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
@@ -195,7 +218,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     const scaleX = containerWidth / FIXED_AREA_WIDTH;
     const scaleY = containerHeight / FIXED_AREA_HEIGHT;
     const initialScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale for some margin
-    
+
     const initialTransform = d3.zoomIdentity
       .translate(containerWidth / 2, containerHeight / 2)
       .scale(initialScale)
@@ -245,12 +268,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const svg = d3.select(svgRef.current);
       const containerWidth = svgRef.current.parentElement.clientWidth;
       const containerHeight = window.innerHeight * 0.7;
-      
+
       // Calculate scale to fit the fixed area in the container
       const scaleX = containerWidth / FIXED_AREA_WIDTH;
       const scaleY = containerHeight / FIXED_AREA_HEIGHT;
       const optimalScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale
-      
+
       const transform = d3.zoomIdentity
         .translate(containerWidth / 2, containerHeight / 2)
         .scale(optimalScale)
@@ -465,7 +488,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           if (linkData.type === 'fifth') linkColor = '#0000FF';    // Blue
           if (linkData.type === 'sixth') linkColor = '#4B0082';    // Indigo
           if (linkData.type === 'seventh') linkColor = '#9400D3';  // Violet
-      
+
           // Determine arrow marker
           let arrowMarker = '';
           if (linkData.type === 'first') arrowMarker = 'url(#arrow-first)';
@@ -478,7 +501,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           if (!arrowMarker && linkData.type && linkData.type !== 'direct') {
             arrowMarker = 'url(#arrow-default)';  // Use default for any other types
           }
-      
+
           // Create line with arrow
           linkGroup.append('path')
             .datum(linkData)
@@ -570,9 +593,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         } else {
           // Single color node
           nodeGroup.append('circle')
-            .attr('r', d.id === 'target2' || d.id === 'target1' ? 35 : 30)
+            .attr('r', 30)
             .attr('fill', getNodeColor(d))
-            .attr('stroke', d.id === 'target2' ? '#FF3D00' : (d.id === 'target1' ? '#4285F4' : 'none'))
+            .attr('stroke', 'none')
             .attr('stroke-width', d.id === 'target2' || d.id === 'target1' ? 3 : 0);
         }
 
@@ -604,8 +627,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         if (!d || !d.source || !d.target) return "M0,0L0,0";
         if (typeof d.source.x === 'undefined' || typeof d.target.x === 'undefined') return "M0,0L0,0";
 
-        const sourceRadius = d.source.id === 'target2' || d.source.id === 'target1' ? 35 : 30;
-        const targetRadius = d.target.id === 'target2' || d.target.id === 'target1' ? 35 : 30;
+        const sourceRadius = 30;
+        const targetRadius = 30;
+
 
         const dx = d.target.x - d.source.x;
         const dy = d.target.y - d.source.y;
@@ -679,37 +703,26 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       }
 
-      // Initial node positioning within the fixed area
-      data.nodes.forEach(node => {
-        if (node.id === 'target2') {
-          node.x = FIXED_AREA_WIDTH * 0.9;  // Top right corner
-          node.y = FIXED_AREA_HEIGHT * 0.1;
-          node.fx = node.x;
-          node.fy = node.y;
-        } else if (node.id === 'target1') {
-          node.x = FIXED_AREA_WIDTH * 0.1;  // Bottom left corner
-          node.y = FIXED_AREA_HEIGHT * 0.9;
-          node.fx = node.x;
-          node.fy = node.y;
-        } else {
-          const distance = Math.random();
-          const angle = Math.random() * 2 * Math.PI;
-          const radius = Math.pow(distance, 0.8) * Math.min(FIXED_AREA_WIDTH, FIXED_AREA_HEIGHT) * 0.4;
-          node.x = FIXED_AREA_WIDTH / 2 + radius * Math.cos(angle);
-          node.y = FIXED_AREA_HEIGHT / 2 + radius * Math.sin(angle);
-        }
+      const groupMap = buildGroups(data.nodes, data.links);
+      const groupCount = Math.max(...groupMap.values()) + 1;
+      
+      // Make a list of random centres (avoid edges)
+      const margin = 300;
+      const centres = Array.from({ length: groupCount }, () => ({
+        x: margin + Math.random() * (FIXED_AREA_WIDTH - 2 * margin),
+        y: margin + Math.random() * (FIXED_AREA_HEIGHT - 2 * margin)
+      }));
+      
+      data.nodes.forEach(n => {
+        const g = groupMap.get(n.id);
+        const c = centres[g];
+      
+        const angle = Math.random() * 2 * Math.PI;
+        const r = Math.random() * 150;
+      
+        n.x = c.x + r * Math.cos(angle);
+        n.y = c.y + r * Math.sin(angle);
       });
-
-      // Release fixed positions after initial layout
-      setTimeout(() => {
-        data.nodes.forEach(node => {
-          if (node.id === 'target1' || node.id === 'target2') {
-            node.fx = null;
-            node.fy = null;
-          }
-        });
-        simulation.alpha(0.3).restart();
-      }, 2000);
 
     } catch (error) {
       console.error("Error rendering network visualization:", error);
