@@ -1,3 +1,5 @@
+Major update: update the data to the ones from class survey (Much bigger, continually updating specific data types...)
+
 ⸻
 
 🔗 Social Network Visualization
