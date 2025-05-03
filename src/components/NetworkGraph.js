@@ -358,113 +358,19 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const zoom = setupZoom(svg, g, width, height);
       zoomRef.current = zoom;
 
-      // Add arrow markers
+      // Add a single universal arrow marker
       const defs = svg.append("defs");
-
-      // First type (red)
       defs.append("marker")
-        .attr("id", "arrow-first")
+        .attr("id", "arrow")
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
+        .attr("refX", 1)
         .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
+        .attr("markerWidth", 40)
+        .attr("markerHeight", 40)
         .attr("orient", "auto")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#FF0000");
-
-      // Second type (orange)
-      defs.append("marker")
-        .attr("id", "arrow-second")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#FF7F00");
-
-      // Third type (yellow)
-      defs.append("marker")
-        .attr("id", "arrow-third")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#FFD700");
-
-      // Fourth type (green)
-      defs.append("marker")
-        .attr("id", "arrow-fourth")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#00FF00");
-
-      // Fifth type (blue)
-      defs.append("marker")
-        .attr("id", "arrow-fifth")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#0000FF");
-
-      // Sixth type (indigo)
-      defs.append("marker")
-        .attr("id", "arrow-sixth")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#4B0082");
-
-      // Seventh type (violet)
-      defs.append("marker")
-        .attr("id", "arrow-seventh")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#9400D3");
-
-      // Default marker for any other types
-      defs.append("marker")
-        .attr("id", "arrow-default")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 60)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#808080"); // Gray for any link type beyond seventh
-
+        .attr("fill", "#808080");
 
       // ➊ define linkForce with initial strength = 1
       const linkForce = d3.forceLink(data.links)
@@ -478,50 +384,25 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       // .force('charge', d3.forceManyBody().strength(-80))
       // .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
 
-
       // Create links
       const linkGroup = g.append('g');
 
-      data.links.forEach(linkData => {
-        try {
-          // Determine link color based on type using rainbow colors
-          let linkColor = '#808080';  // Default gray
-          if (linkData.type === 'first') linkColor = '#FF0000';    // Red
-          if (linkData.type === 'second') linkColor = '#FF7F00';   // Orange
-          if (linkData.type === 'third') linkColor = '#FFD700';    // Yellow
-          if (linkData.type === 'fourth') linkColor = '#00FF00';   // Green
-          if (linkData.type === 'fifth') linkColor = '#0000FF';    // Blue
-          if (linkData.type === 'sixth') linkColor = '#4B0082';    // Indigo
-          if (linkData.type === 'seventh') linkColor = '#9400D3';  // Violet
-
-          // Determine arrow marker
-          let arrowMarker = '';
-          if (linkData.type === 'first') arrowMarker = 'url(#arrow-first)';
-          if (linkData.type === 'second') arrowMarker = 'url(#arrow-second)';
-          if (linkData.type === 'third') arrowMarker = 'url(#arrow-third)';
-          if (linkData.type === 'fourth') arrowMarker = 'url(#arrow-fourth)';
-          if (linkData.type === 'fifth') arrowMarker = 'url(#arrow-fifth)';
-          if (linkData.type === 'sixth') arrowMarker = 'url(#arrow-sixth)';
-          if (linkData.type === 'seventh') arrowMarker = 'url(#arrow-seventh)';
-          if (!arrowMarker && linkData.type && linkData.type !== 'direct') {
-            arrowMarker = 'url(#arrow-default)';  // Use default for any other types
-          }
-
-          // Create line with arrow
-          linkGroup.append('path')
-            .datum(linkData)
-            .attr('fill', 'none')
-            .attr('stroke', linkColor)
-            .attr('stroke-width', 3)
-            .attr('stroke-dasharray', linkData.type === 'direct' ? '8,8' : null)
-            .attr('class', 'link-line')
-            .attr('marker-end', arrowMarker);
-        } catch (error) {
-          console.error("Error processing link:", error);
-        }
+      data.links.forEach(ld => {
+        // Full‐length link
+        linkGroup.append('path')
+          .datum(ld)
+          .attr('class', 'link-full')
+          .attr('fill', 'none')
+          .attr('stroke', '#999')
+          .attr('stroke-width', 3);
+        // Short 1/3 link for arrow
+        linkGroup.append('path')
+          .datum(ld)
+          .attr('class', 'link-arrow')
+          .attr('fill', 'none')
+          .attr('stroke', 'none')
+          .attr('marker-end', 'url(#arrow)');
       });
-
-      const link = linkGroup.selectAll('.link-line');
 
       // Create nodes
       const node = g.append('g')
@@ -600,8 +481,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           nodeGroup.append('circle')
             .attr('r', 30)
             .attr('fill', getNodeColor(d))
-            .attr('stroke', 'none')
-            .attr('stroke-width', d.id === 'target2' || d.id === 'target1' ? 3 : 0);
+            .attr('stroke', 'none');
         }
 
         // Add labels
@@ -657,7 +537,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       simulation.on('tick', () => {
         // Apply boundary constraints to fixed area
         node.each(d => {
-          const nodeRadius = (d.id === 'target2' || d.id === 'target1') ? 35 : 30;
+          const nodeRadius = 30;
           const margin = nodeRadius + 5;
 
           // Constrain nodes to stay within the fixed area dimensions
@@ -665,14 +545,20 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
         });
 
-        // Update link paths
-        link.attr('d', function (d) {
-          try {
-            return linkPath(d);
-          } catch (error) {
-            console.error("Error updating link path:", error);
-            return "M0,0L0,0";
-          }
+        // Full‐length links
+        svg.selectAll('.link-full').attr('d', d => linkPath(d));
+        // Arrow paths at 1/3 from source → target
+        svg.selectAll('.link-arrow').attr('d', d => {
+          const dx = d.target.x - d.source.x;
+          const dy = d.target.y - d.source.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist === 0) return 'M0,0L0,0';
+          const ux = dx / dist, uy = dy / dist;
+          // start just outside source circle
+          const sx = d.source.x + ux * 30, sy = d.source.y + uy * 30;
+          // end at 1/3 of the link
+          const ex = d.source.x + dx * (1 / 3), ey = d.source.y + dy * (1 / 3);
+          return `M${sx},${sy}L${ex},${ey}`;
         });
 
         // Update node positions
@@ -681,20 +567,15 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       // Drag handlers
       function dragstarted(event, d) {
-        // …
         const myGroup = groupMap.get(d.id);
-
-        // ➋ only links inside the dragged node’s group stay “on”
         linkForce.strength(link => {
           const s = groupMap.get(link.source.id ?? link.source);
           const t = groupMap.get(link.target.id ?? link.target);
           return (s === myGroup && t === myGroup) ? 1 : 0;
         });
-
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x; d.fy = d.y;
       }
-
 
       function dragged(event, d) {
         d.fx = event.x;
@@ -703,15 +584,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       function dragended(event, d) {
         simulation.alphaTarget(0);
-
-        // ➌ restore springs everywhere
         linkForce.strength(1);
-
-        if (!isTouchDevice()) { d.fx = null; d.fy = null; }
-      }
-
-      function isTouchDevice() {
-        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
+          d.fx = null; d.fy = null;
+        }
       }
 
       /* ──────────  GROUP‑AWARE RESPAWN  v2  ────────── */
@@ -727,18 +603,16 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const PX_PER_NODE = 25;    // px extra per √node
       const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
 
-
       /* 3️  Poisson‑disk style placement of centres */
-      const PAD = 700;                // keep this much empty space between bubbles
-      const tries = 30;                 // attempts per group before we relax PAD a bit
+      const PAD = 700;
+      const tries = 30;
       const centres = [];
-      const rng = () => Math.random();  // alias so code looks tidy
+      const rng = () => Math.random();
 
       for (let g = 0; g < groupCount; g++) {
         let ok = false, attempt = 0, rad = groupR[g] + PAD;
 
         while (!ok) {
-          // random candidate inside the white rectangle, leaving margin = rad
           const cand = {
             x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
             y: rad + rng() * (FIXED_AREA_HEIGHT - 2 * rad)
@@ -752,7 +626,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           });
 
           if (!ok && ++attempt === tries) {
-            // too crowded – shrink required padding a little and keep going
             attempt = 0;
             rad = Math.max(groupR[g], rad - 100);
           }
@@ -766,7 +639,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         const c = centres[g];
 
         const θ = rng() * 2 * Math.PI;
-        const r = rng() * (groupR[g] - 40);  // keep 40 px from the edge
+        const r = rng() * (groupR[g] - 40);
         n.x = c.x + r * Math.cos(θ);
         n.y = c.y + r * Math.sin(θ);
       });
@@ -784,21 +657,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   return (
     <div className="network-container">
       <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
-
       <div className="visualization-area">
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
       </div>
-
-      {/* <div className="zoom-controls">
-        <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in"
-          onTouchStart={preventAndCall(handleZoomIn)}>+</button>
-        <div className="zoom-level">{Math.round(zoomLevel * 100)}%</div>
-        <button className="zoom-button" onClick={handleZoomOut} aria-label="Zoom out"
-          onTouchStart={preventAndCall(handleZoomOut)}>−</button>
-        <button className="reset-view-button" onClick={handleResetView} aria-label="Reset view"
-          onTouchStart={preventAndCall(handleResetView)}>⟳</button>
-      </div> */}
     </div>
   );
 };
