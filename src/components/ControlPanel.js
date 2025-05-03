@@ -6,7 +6,8 @@ const COLOR_OPTIONS = [
   { value: 'major', label: 'Major' },
   { value: 'school', label: 'School' },
   { value: 'year', label: 'Year' },
-  { value: 'language', label: 'Language' }
+  { value: 'language', label: 'Language' },
+  { value: 'cu_friends', label: 'Friends Source' }
 ];
 
 const ControlPanel = ({ colorBy, setColorBy }) => (

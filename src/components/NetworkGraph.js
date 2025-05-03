@@ -53,21 +53,19 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   useEffect(() => {
     const generateDynamicColorMaps = async () => {
       try {
-        let uniqueMajors = [];
-        let uniqueLanguages = [];
-        let uniqueYears = [];
+        const majorData = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
+        const uniqueMajors = majorData.default || [];
 
-        try {
-          const majorData = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
-          const languageData = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
-          const yearData = await import('../data/unique_years.json').catch(() => ({ default: [] }));
+        const languageData = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
+        const uniqueLanguages = languageData.default || [];
 
-          uniqueMajors = majorData.default || [];
-          uniqueLanguages = languageData.default || [];
-          uniqueYears = yearData.default || [];
-        } catch (error) {
-          console.warn('Dynamic data files not found');
-        }
+        const yearData = await import('../data/unique_years.json').catch(() => ({ default: [] }));
+        const uniqueYears = yearData.default || [];
+
+        const cuFriendsData = await import('../data/cu_friends.json').catch(() => ({ default: [] }));
+        const uniqueCuFriends = cuFriendsData.default || [];
+
+
 
         // Generate color maps
         const newColorMaps = {};
@@ -93,6 +91,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           newColorMaps.year = {};
           uniqueYears.forEach((year, index) => {
             newColorMaps.year[year] = COLOR_PALETTE[index % COLOR_PALETTE.length];
+          });
+        }
+        // CU‑Friends color map
+        if (uniqueCuFriends.length > 0) {
+          newColorMaps.cu_friends = {};
+          uniqueCuFriends.forEach((val, i) => {
+            newColorMaps.cu_friends[val] = COLOR_PALETTE[i % COLOR_PALETTE.length];
           });
         }
 
@@ -146,6 +151,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         }
         return "#9e9e9e";
 
+      case 'cu_friends':
+        if (!d.cu_friends || !colorMaps.cu_friends) return "#9e9e9e";
+        return colorMaps.cu_friends[d.cu_friends] || "#9e9e9e";
+
       default:
         return "#9e9e9e";
     }
@@ -197,7 +206,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const majors = d.major.split(',').map(maj => maj.trim());
       return createSegmentedNode(majors, colorMaps.major);
     }
-
+    else if (colorBy === 'cu_friends' && d.cu_friends && d.cu_friends.includes(',')) {
+      const friends = d.cu_friends.split(',').map(f => f.trim());
+      return createSegmentedNode(friends, colorMaps.cu_friends);
+    }
     return null;
   };
 
@@ -381,7 +393,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const simulation = d3.forceSimulation(data.nodes)
         .force('link', linkForce)
         .force('collision', d3.forceCollide().radius(100));
-        // .force('charge', d3.forceManyBody().strength(-80));
+      // .force('charge', d3.forceManyBody().strength(-80));
       // .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
 
       // Create links
@@ -435,6 +447,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
             html += `<p><strong>School:</strong> ${d.school}</p>`;
             html += `<p><strong>Year:</strong> ${d.year}</p>`;
             html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
+            html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
             html += `<p><strong>Group:</strong> ${d.group}</p>`;
 
             tooltip
@@ -458,7 +471,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           });
 
         // Create node shapes
-        if (nodePathInfo && (colorBy === 'major' || colorBy === 'language')) {
+        if (nodePathInfo && (colorBy === 'major'
+          || colorBy === 'language'
+          || colorBy === 'cu_friends')) {
           // Multiple segment node
           const items = nodePathInfo.items;
           const colorMap = colorMaps[colorBy];
@@ -484,27 +499,27 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
             .attr('stroke', 'none');
         }
 
-        // Add labels
-        if (d.id === 'target2' || d.id === 'target1') {
-          nodeGroup.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dy', '0.35em')
-            .attr('font-family', 'Arial')
-            .attr('font-size', d.id === 'target1' ? '16px' : '14px')
-            .text(d.id);
-        } else {
-          // Center dot
-          nodeGroup.append('circle')
-            .attr('r', 6);
+        // // Add labels
+        // if (d.id === 'target2' || d.id === 'target1') {
+        //   nodeGroup.append('text')
+        //     .attr('text-anchor', 'middle')
+        //     .attr('dy', '0.35em')
+        //     .attr('font-family', 'Arial')
+        //     .attr('font-size', d.id === 'target1' ? '16px' : '14px')
+        //     .text(d.id);
+        // } else {
+        //   // Center dot
+        //   nodeGroup.append('circle')
+        //     .attr('r', 6);
 
-          // Group indicator
-          nodeGroup.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dy', '0.7em')
-            .attr('font-family', 'Arial')
-            .attr('font-size', '20px')
-            .text(`G${d.group}`);
-        }
+        //   // Group indicator
+        //   nodeGroup.append('text')
+        //     .attr('text-anchor', 'middle')
+        //     .attr('dy', '0.7em')
+        //     .attr('font-family', 'Arial')
+        //     .attr('font-size', '20px')
+        //     .text(`G${d.group}`);
+        // }
       });
 
       // Path calculation for links
@@ -647,7 +662,55 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     } catch (error) {
       console.error("Error rendering network visualization:", error);
     }
-  }, [colorBy, data, colorMaps]);
+  }, [data]);
+
+
+  // Lightweight recolor effect
+
+  useEffect(() => {
+    if (!svgRef.current || !colorMaps) return;
+
+    const g = d3.select(svgRef.current).select('g');
+
+    // remove any old slice paths or circles inside each nodeGroup
+    g.selectAll('.node').each(function (d) {
+      const nodeGroup = d3.select(this);
+      nodeGroup.selectAll('path, circle').remove();   // keep the <g> & its transform
+
+      // --- redraw according to current colorBy ---
+      const nodePathInfo = createNodePath(d);  // your existing helper
+
+      if (nodePathInfo && (colorBy === 'major' ||
+        colorBy === 'language' ||
+        colorBy === 'cu_friends')) {
+        const items = nodePathInfo.items;
+        const colorMap = colorMaps[colorBy];
+        const anglePerItem = (2 * Math.PI) / items.length;
+
+        items.forEach((item, i) => {
+          const startAngle = i * anglePerItem;
+          const endAngle = (i + 1) * anglePerItem;
+
+          nodeGroup.append('path')
+            .attr('d', d3.arc()
+              .innerRadius(0)
+              .outerRadius(30)
+              .startAngle(startAngle)
+              .endAngle(endAngle))
+            .attr('fill', colorMap[item] || '#9e9e9e');
+        });
+      } else {
+        // single‑color circle
+        nodeGroup.append('circle')
+          .attr('r', 30)
+          .attr('fill', getNodeColor(d))
+          .attr('stroke', 'none');
+      }
+
+      // 👉 removed the text/labels earlier, so no need to add them again
+      nodeGroup.append('circle').attr('r', 6);  // center dot
+    });
+  }, [colorBy, colorMaps]);
 
   const preventAndCall = (handler) => (e) => {
     e.preventDefault();

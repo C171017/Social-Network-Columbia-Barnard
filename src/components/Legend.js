@@ -32,7 +32,8 @@ const STATIC_LEGEND_ITEMS = {
     { color: '#4285f4', label: '2026' },
     { color: '#ea4335', label: '2027' },
     { color: '#9e9e9e', label: 'Unknown' }
-  ]
+  ],
+  'cu_friends':      [], 
 };
 
 // Initial common values for dynamic types
@@ -71,17 +72,20 @@ const Legend = ({ colorBy }) => {
         let majorData = [];
         let languageData = [];
         let yearData = [];
+        let cuFriends     = [];
         
         try {
           // Try to import dynamic data files
           const majorModule = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
           const languageModule = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
           const yearModule = await import('../data/unique_years.json').catch(() => ({ default: [] }));
-
+          const cuFriendsModule = await import('../data/cu_friends.json').catch(() => ({ default: [] }));
           
           majorData = majorModule.default || [];
           languageData = languageModule.default || [];
           yearData = yearModule.default || [];
+          cuFriends = cuFriendsModule .default || [];
+
         } catch (error) {
           console.warn('Dynamic data files not found, using default values');
         }
@@ -135,6 +139,17 @@ const Legend = ({ colorBy }) => {
           setLegendItems(prev => ({
             ...prev,
             year: yearLegend
+          }));
+        }
+
+        if (cuFriends.length > 0) {
+          const cuFriendsLegend = cuFriends.map((label, i) => ({
+            label,
+            color: COLOR_PALETTE[i % COLOR_PALETTE.length],
+          }));
+          setLegendItems(prev => ({
+            ...prev,
+            cu_friends: cuFriendsLegend
           }));
         }
       } catch (error) {
