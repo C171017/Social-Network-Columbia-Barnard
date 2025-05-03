@@ -380,8 +380,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       const simulation = d3.forceSimulation(data.nodes)
         .force('link', linkForce)
-        .force('collision', d3.forceCollide().radius(130));
-      // .force('charge', d3.forceManyBody().strength(-80))
+        .force('collision', d3.forceCollide().radius(100));
+        // .force('charge', d3.forceManyBody().strength(-80));
       // .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
 
       // Create links
