@@ -26,14 +26,15 @@ function buildGroups(nodes, links) {
   return groupMap;                     // use groupMap.get(node.id)
 }
 
+
 // Define zoom settings
-const ZOOM_MIN = 0.1;
+const ZOOM_MIN = 0.01;
 const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
 // Fixed visualization area dimensions (regardless of screen size)
-const FIXED_AREA_WIDTH = 15000;
-const FIXED_AREA_HEIGHT = 15000;
+const FIXED_AREA_WIDTH = 25000;
+const FIXED_AREA_HEIGHT = 25000;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
@@ -465,14 +466,18 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr("fill", "#808080"); // Gray for any link type beyond seventh
 
 
-      // Set up the simulation - using fixed center coordinates
+      // ➊ define linkForce with initial strength = 1
+      const linkForce = d3.forceLink(data.links)
+        .id(d => d.id)
+        .distance(250)
+        .strength(1);
+
       const simulation = d3.forceSimulation(data.nodes)
-        .force('link', d3.forceLink(data.links)
-          .id(d => d.id)
-          .distance(250))
-        .force('charge', d3.forceManyBody().strength(-70))
-        .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
-        .force('collision', d3.forceCollide().radius(50));
+        .force('link', linkForce)
+        .force('collision', d3.forceCollide().radius(120));
+      // .force('charge', d3.forceManyBody().strength(-80))
+      // .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
+
 
       // Create links
       const linkGroup = g.append('g');
@@ -676,74 +681,116 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       // Drag handlers
       function dragstarted(event, d) {
-        if (event.sourceEvent) {
-          event.sourceEvent.stopPropagation();
-          event.sourceEvent.preventDefault();
-        }
+        // …
+        const myGroup = groupMap.get(d.id);
+
+        // ➋ only links inside the dragged node’s group stay “on”
+        linkForce.strength(link => {
+          const s = groupMap.get(link.source.id ?? link.source);
+          const t = groupMap.get(link.target.id ?? link.target);
+          return (s === myGroup && t === myGroup) ? 1 : 0;
+        });
 
         if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
+        d.fx = d.x; d.fy = d.y;
       }
 
-      function dragged(event, d) {
-        d.fx = event.x;
-        d.fy = event.y;
-      }
 
-      function dragended(event, d) {
-        if (!event.active) simulation.alphaTarget(0);
-        if (!isTouchDevice()) {
-          d.fx = null;
-          d.fy = null;
-        }
-      }
-
-      function isTouchDevice() {
-        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      }
-
-      const groupMap = buildGroups(data.nodes, data.links);
-      const groupCount = Math.max(...groupMap.values()) + 1;
-      
-      // Make a list of random centres (avoid edges)
-      const margin = 300;
-      const centres = Array.from({ length: groupCount }, () => ({
-        x: margin + Math.random() * (FIXED_AREA_WIDTH - 2 * margin),
-        y: margin + Math.random() * (FIXED_AREA_HEIGHT - 2 * margin)
-      }));
-      
-      data.nodes.forEach(n => {
-        const g = groupMap.get(n.id);
-        const c = centres[g];
-      
-        const angle = Math.random() * 2 * Math.PI;
-        const r = Math.random() * 150;
-      
-        n.x = c.x + r * Math.cos(angle);
-        n.y = c.y + r * Math.sin(angle);
-      });
-
-    } catch (error) {
-      console.error("Error rendering network visualization:", error);
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
     }
-  }, [colorBy, data, colorMaps]);
 
-  const preventAndCall = (handler) => (e) => {
-    e.preventDefault();
-    handler();
-  };
+    function dragended(event, d) {
+      simulation.alphaTarget(0);
 
-  return (
-    <div className="network-container">
-      <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
+      // ➌ restore springs everywhere
+      linkForce.strength(1);
 
-      <div className="visualization-area">
-        <svg ref={svgRef} className="network-graph"
-          aria-label="Network graph visualization - draggable view"></svg>
-      </div>
+      if (!isTouchDevice()) { d.fx = null; d.fy = null; }
+    }
 
-      {/* <div className="zoom-controls">
+    function isTouchDevice() {
+      return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    }
+
+    /* ──────────  GROUP‑AWARE RESPAWN  v2  ────────── */
+    const groupMap = buildGroups(data.nodes, data.links);
+    const groupCount = Math.max(...groupMap.values()) + 1;
+
+    /* 1️⃣  how many nodes in each group? */
+    const groupSizes = Array.from({ length: groupCount }, () => 0);
+    data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
+
+    /* 2️⃣  radius per group */
+    const BASE_R = 200;   // px, smallest bubble
+    const PX_PER_NODE = 25;    // px extra per √node
+    const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
+
+    /* 3️⃣  Poisson‑disk style placement of centres */
+    const PAD = 300;                // keep this much empty space between bubbles
+    const tries = 30;                 // attempts per group before we relax PAD a bit
+    const centres = [];
+    const rng = () => Math.random();  // alias so code looks tidy
+
+    for (let g = 0; g < groupCount; g++) {
+      let ok = false, attempt = 0, rad = groupR[g] + PAD;
+
+      while (!ok) {
+        // random candidate inside the white rectangle, leaving margin = rad
+        const cand = {
+          x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
+          y: rad + rng() * (FIXED_AREA_HEIGHT - 2 * rad)
+        };
+
+        ok = centres.every((c, j) => {
+          const dx = c.x - cand.x;
+          const dy = c.y - cand.y;
+          const minGap = groupR[j] + groupR[g] + PAD;
+          return dx * dx + dy * dy >= minGap * minGap;
+        });
+
+        if (!ok && ++attempt === tries) {
+          // too crowded – shrink required padding a little and keep going
+          attempt = 0;
+          rad = Math.max(groupR[g], rad - 100);
+        }
+        if (ok) centres[g] = cand;
+      }
+    }
+
+    /* 4️⃣  scatter individual nodes inside their bubble */
+    data.nodes.forEach(n => {
+      const g = groupMap.get(n.id);
+      const c = centres[g];
+
+      const θ = rng() * 2 * Math.PI;
+      const r = rng() * (groupR[g] - 40);  // keep 40 px from the edge
+      n.x = c.x + r * Math.cos(θ);
+      n.y = c.y + r * Math.sin(θ);
+    });
+    /* ──────────────────────────────────────────────── */
+
+  } catch (error) {
+    console.error("Error rendering network visualization:", error);
+  }
+}, [colorBy, data, colorMaps]);
+
+const preventAndCall = (handler) => (e) => {
+  e.preventDefault();
+  handler();
+};
+
+return (
+  <div className="network-container">
+    <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
+
+    <div className="visualization-area">
+      <svg ref={svgRef} className="network-graph"
+        aria-label="Network graph visualization - draggable view"></svg>
+    </div>
+
+    {/* <div className="zoom-controls">
         <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in"
           onTouchStart={preventAndCall(handleZoomIn)}>+</button>
         <div className="zoom-level">{Math.round(zoomLevel * 100)}%</div>
@@ -752,8 +799,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         <button className="reset-view-button" onClick={handleResetView} aria-label="Reset view"
           onTouchStart={preventAndCall(handleResetView)}>⟳</button>
       </div> */}
-    </div>
-  );
+  </div>
+);
 };
 
 export default NetworkGraph;
