@@ -2,11 +2,11 @@ import React from 'react';
 import './ControlPanel.css';
 
 const COLOR_OPTIONS = [
-  { value: 'email-sequence', label: 'Email Sequence' },
-  { value: 'major', label: 'Major' },
-  { value: 'school', label: 'School' },
+  // { value: 'email-sequence', label: 'Email Sequence' },
+  // { value: 'major', label: 'Major' },
+  // { value: 'school', label: 'School' },
   { value: 'year', label: 'Year' },
-  { value: 'language', label: 'Language' },
+  // { value: 'language', label: 'Language' },
   { value: 'cu_friends', label: 'Friends Source' }
 ];
 

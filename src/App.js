@@ -12,7 +12,7 @@ try {
 }
 
 function App() {
-  const [colorBy, setColorBy] = useState('email-sequence');
+  const [colorBy, setColorBy] = useState('year');
   const [data] = useState(networkData);
 
   return (

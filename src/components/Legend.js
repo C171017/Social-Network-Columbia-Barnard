@@ -10,23 +10,23 @@ const COLOR_PALETTE = [
 
 // Static legend items for email sequence and schools
 const STATIC_LEGEND_ITEMS = {
-  'email-sequence': [
-    { color: '#FF0000', label: 'First Forwards' },
-    { color: '#FF7F00', label: 'Second Forwards' },
-    { color: '#FFD700', label: 'Third Forwards' },
-    { color: '#00FF00', label: 'Fourth Forwards' },
-    { color: '#0000FF', label: 'Fifth Forwards' },
-    { color: '#4B0082', label: 'Sixth Forwards' },
-    { color: '#9400D3', label: 'Seventh Forwards' },
-  ],
-  'school': [
-    { color: '#4285f4', label: 'SEAS' },
-    { color: '#ea4335', label: 'CC' },
-    { color: '#34a853', label: 'Barnard' },
-    { color: '#673ab7', label: 'GS' },
-    { color: '#9C27B0', label: 'TC' },
-    { color: '#9e9e9e', label: 'Unknown' }
-  ],
+  // 'email-sequence': [
+  //   { color: '#FF0000', label: 'First Forwards' },
+  //   { color: '#FF7F00', label: 'Second Forwards' },
+  //   { color: '#FFD700', label: 'Third Forwards' },
+  //   { color: '#00FF00', label: 'Fourth Forwards' },
+  //   { color: '#0000FF', label: 'Fifth Forwards' },
+  //   { color: '#4B0082', label: 'Sixth Forwards' },
+  //   { color: '#9400D3', label: 'Seventh Forwards' },
+  // ],
+  // 'school': [
+  //   { color: '#4285f4', label: 'SEAS' },
+  //   { color: '#ea4335', label: 'CC' },
+  //   { color: '#34a853', label: 'Barnard' },
+  //   { color: '#673ab7', label: 'GS' },
+  //   { color: '#9C27B0', label: 'TC' },
+  //   { color: '#9e9e9e', label: 'Unknown' }
+  // ],
   'year': [
     { color: '#673ab7', label: '2025' },
     { color: '#4285f4', label: '2026' },
@@ -38,24 +38,24 @@ const STATIC_LEGEND_ITEMS = {
 
 // Initial common values for dynamic types
 const INITIAL_DYNAMIC_ITEMS = {
-  'major': [
-    { color: '#4285f4', label: 'Mechanical Engineering' },
-    { color: '#ea4335', label: 'Creative Writing' },
-    { color: '#fbbc05', label: 'Biomedical Engineering' },
-    { color: '#34a853', label: 'Psychology' },
-    { color: '#673ab7', label: 'Human Rights' },
-    { color: '#9C27B0', label: 'Comparative Literature & Society' },
-    { color: '#00ACC1', label: 'Computer Science' },
-    { color: '#9e9e9e', label: 'Unknown' }
-  ],
-  'language': [
-    { color: '#4285f4', label: 'French' },
-    { color: '#ea4335', label: 'Spanish' },
-    { color: '#fbbc05', label: 'Mandarin' },
-    { color: '#673ab7', label: 'Greek' },
-    { color: '#34a853', label: 'English' },
-    { color: '#9e9e9e', label: 'Unknown' }
-  ]
+  // 'major': [
+  //   { color: '#4285f4', label: 'Mechanical Engineering' },
+  //   { color: '#ea4335', label: 'Creative Writing' },
+  //   { color: '#fbbc05', label: 'Biomedical Engineering' },
+  //   { color: '#34a853', label: 'Psychology' },
+  //   { color: '#673ab7', label: 'Human Rights' },
+  //   { color: '#9C27B0', label: 'Comparative Literature & Society' },
+  //   { color: '#00ACC1', label: 'Computer Science' },
+  //   { color: '#9e9e9e', label: 'Unknown' }
+  // ],
+  // 'language': [
+  //   { color: '#4285f4', label: 'French' },
+  //   { color: '#ea4335', label: 'Spanish' },
+  //   { color: '#fbbc05', label: 'Mandarin' },
+  //   { color: '#673ab7', label: 'Greek' },
+  //   { color: '#34a853', label: 'English' },
+  //   { color: '#9e9e9e', label: 'Unknown' }
+  // ]
 };
 
 const Legend = ({ colorBy }) => {
