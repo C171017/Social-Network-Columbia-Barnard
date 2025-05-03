@@ -469,12 +469,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       // ➊ define linkForce with initial strength = 1
       const linkForce = d3.forceLink(data.links)
         .id(d => d.id)
-        .distance(250)
+        .distance(400)
         .strength(1);
 
       const simulation = d3.forceSimulation(data.nodes)
         .force('link', linkForce)
-        .force('collision', d3.forceCollide().radius(120));
+        .force('collision', d3.forceCollide().radius(130));
       // .force('charge', d3.forceManyBody().strength(-80))
       // .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
 
@@ -696,101 +696,101 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       }
 
 
-    function dragged(event, d) {
-      d.fx = event.x;
-      d.fy = event.y;
-    }
-
-    function dragended(event, d) {
-      simulation.alphaTarget(0);
-
-      // ➌ restore springs everywhere
-      linkForce.strength(1);
-
-      if (!isTouchDevice()) { d.fx = null; d.fy = null; }
-    }
-
-    function isTouchDevice() {
-      return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    }
-
-    /* ──────────  GROUP‑AWARE RESPAWN  v2  ────────── */
-    const groupMap = buildGroups(data.nodes, data.links);
-    const groupCount = Math.max(...groupMap.values()) + 1;
-
-    /* 1️⃣  how many nodes in each group? */
-    const groupSizes = Array.from({ length: groupCount }, () => 0);
-    data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
-
-    /* 2️⃣  radius per group */
-    const BASE_R = 200;   // px, smallest bubble
-    const PX_PER_NODE = 25;    // px extra per √node
-    const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
-
-    /* 3️⃣  Poisson‑disk style placement of centres */
-    const PAD = 300;                // keep this much empty space between bubbles
-    const tries = 30;                 // attempts per group before we relax PAD a bit
-    const centres = [];
-    const rng = () => Math.random();  // alias so code looks tidy
-
-    for (let g = 0; g < groupCount; g++) {
-      let ok = false, attempt = 0, rad = groupR[g] + PAD;
-
-      while (!ok) {
-        // random candidate inside the white rectangle, leaving margin = rad
-        const cand = {
-          x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
-          y: rad + rng() * (FIXED_AREA_HEIGHT - 2 * rad)
-        };
-
-        ok = centres.every((c, j) => {
-          const dx = c.x - cand.x;
-          const dy = c.y - cand.y;
-          const minGap = groupR[j] + groupR[g] + PAD;
-          return dx * dx + dy * dy >= minGap * minGap;
-        });
-
-        if (!ok && ++attempt === tries) {
-          // too crowded – shrink required padding a little and keep going
-          attempt = 0;
-          rad = Math.max(groupR[g], rad - 100);
-        }
-        if (ok) centres[g] = cand;
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
       }
+
+      function dragended(event, d) {
+        simulation.alphaTarget(0);
+
+        // ➌ restore springs everywhere
+        linkForce.strength(1);
+
+        if (!isTouchDevice()) { d.fx = null; d.fy = null; }
+      }
+
+      function isTouchDevice() {
+        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      }
+
+      /* ──────────  GROUP‑AWARE RESPAWN  v2  ────────── */
+      const groupMap = buildGroups(data.nodes, data.links);
+      const groupCount = Math.max(...groupMap.values()) + 1;
+
+      /* 1️  how many nodes in each group? */
+      const groupSizes = Array.from({ length: groupCount }, () => 0);
+      data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
+
+      /* 2️  radius per group */
+      const BASE_R = 200;   // px, smallest bubble
+      const PX_PER_NODE = 25;    // px extra per √node
+      const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
+
+
+      /* 3️  Poisson‑disk style placement of centres */
+      const PAD = 700;                // keep this much empty space between bubbles
+      const tries = 30;                 // attempts per group before we relax PAD a bit
+      const centres = [];
+      const rng = () => Math.random();  // alias so code looks tidy
+
+      for (let g = 0; g < groupCount; g++) {
+        let ok = false, attempt = 0, rad = groupR[g] + PAD;
+
+        while (!ok) {
+          // random candidate inside the white rectangle, leaving margin = rad
+          const cand = {
+            x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
+            y: rad + rng() * (FIXED_AREA_HEIGHT - 2 * rad)
+          };
+
+          ok = centres.every((c, j) => {
+            const dx = c.x - cand.x;
+            const dy = c.y - cand.y;
+            const minGap = groupR[j] + groupR[g] + PAD;
+            return dx * dx + dy * dy >= minGap * minGap;
+          });
+
+          if (!ok && ++attempt === tries) {
+            // too crowded – shrink required padding a little and keep going
+            attempt = 0;
+            rad = Math.max(groupR[g], rad - 100);
+          }
+          if (ok) centres[g] = cand;
+        }
+      }
+
+      /* 4️  scatter individual nodes inside their bubble */
+      data.nodes.forEach(n => {
+        const g = groupMap.get(n.id);
+        const c = centres[g];
+
+        const θ = rng() * 2 * Math.PI;
+        const r = rng() * (groupR[g] - 40);  // keep 40 px from the edge
+        n.x = c.x + r * Math.cos(θ);
+        n.y = c.y + r * Math.sin(θ);
+      });
+
+    } catch (error) {
+      console.error("Error rendering network visualization:", error);
     }
+  }, [colorBy, data, colorMaps]);
 
-    /* 4️⃣  scatter individual nodes inside their bubble */
-    data.nodes.forEach(n => {
-      const g = groupMap.get(n.id);
-      const c = centres[g];
+  const preventAndCall = (handler) => (e) => {
+    e.preventDefault();
+    handler();
+  };
 
-      const θ = rng() * 2 * Math.PI;
-      const r = rng() * (groupR[g] - 40);  // keep 40 px from the edge
-      n.x = c.x + r * Math.cos(θ);
-      n.y = c.y + r * Math.sin(θ);
-    });
-    /* ──────────────────────────────────────────────── */
+  return (
+    <div className="network-container">
+      <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
 
-  } catch (error) {
-    console.error("Error rendering network visualization:", error);
-  }
-}, [colorBy, data, colorMaps]);
+      <div className="visualization-area">
+        <svg ref={svgRef} className="network-graph"
+          aria-label="Network graph visualization - draggable view"></svg>
+      </div>
 
-const preventAndCall = (handler) => (e) => {
-  e.preventDefault();
-  handler();
-};
-
-return (
-  <div className="network-container">
-    <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
-
-    <div className="visualization-area">
-      <svg ref={svgRef} className="network-graph"
-        aria-label="Network graph visualization - draggable view"></svg>
-    </div>
-
-    {/* <div className="zoom-controls">
+      {/* <div className="zoom-controls">
         <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in"
           onTouchStart={preventAndCall(handleZoomIn)}>+</button>
         <div className="zoom-level">{Math.round(zoomLevel * 100)}%</div>
@@ -799,8 +799,8 @@ return (
         <button className="reset-view-button" onClick={handleResetView} aria-label="Reset view"
           onTouchStart={preventAndCall(handleResetView)}>⟳</button>
       </div> */}
-  </div>
-);
+    </div>
+  );
 };
 
 export default NetworkGraph;
