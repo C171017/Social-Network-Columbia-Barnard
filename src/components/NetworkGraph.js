@@ -51,105 +51,72 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const [colorMaps, setColorMaps] = useState({});
 
   // Load dynamic color mappings
-  
 
-// Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
-useEffect(() => {
-  const nodes = data.nodes;
-  const uniq  = arr => [...new Set(arr)].filter(Boolean);
 
-  const maps = {};
-  Object.keys(nodes[0])
-    .filter(k => k !== 'id' && !k.startsWith('zip_'))
-    .forEach((key) => {
-      const vals = uniq(
-        nodes.flatMap(n =>
-          String(n[key]||'').split(',').map(s=>s.trim())
-        )
-      );
-      if (vals.length) {
-        maps[key] = {};
-        vals.forEach((v,i) => {
-          maps[key][v] = COLOR_PALETTE[i % COLOR_PALETTE.length];
-        });
-      }
-    });
+  // Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
+  useEffect(() => {
+    const nodes = data.nodes;
+    const uniq = arr => [...new Set(arr)].filter(Boolean);
 
-  setColorMaps(maps);
-}, [data]);
-
-  // Color schemes for different attributes
-const getNodeColor = (d) => {
-  if (!colorMaps || !d || !colorBy) return '#9e9e9e';
-
-  // use first item when the field contains a comma‑separated list
-  const raw = d[colorBy];
-  if (raw == null || raw === '') return '#9e9e9e';
-  const firstVal = String(raw).split(',')[0].trim();
-
-  // generic lookup (covers major, school, cu_party, whatever)
-  if (colorMaps[colorBy] && colorMaps[colorBy][firstVal]) {
-    return colorMaps[colorBy][firstVal];
-  }
-
-  // one special case that isn’t in the colour map
-  if (colorBy === 'email-sequence') return '#5F6368';
-
-  // fall‑back grey
-  return '#9e9e9e';
-};
-
-  // Create multi-part nodes for multiple items
-  const createNodePath = (d) => {
-    if (!d || !colorMaps) return null;
-
-    const createSegmentedNode = (items, colorMap) => {
-      if (items.length === 0) return null;
-
-      const anglePerItem = (2 * Math.PI) / items.length;
-      let pathData = '';
-
-      items.forEach((item, i) => {
-        const startAngle = i * anglePerItem;
-        const endAngle = (i + 1) * anglePerItem;
-
-        const start = {
-          x: 30 * Math.sin(startAngle),
-          y: -30 * Math.cos(startAngle)
-        };
-
-        const end = {
-          x: 30 * Math.sin(endAngle),
-          y: -30 * Math.cos(endAngle)
-        };
-
-        const largeArcFlag = endAngle - startAngle <= Math.PI ? 0 : 1;
-
-        if (i === 0) {
-          pathData = `M 0 0 L ${start.x} ${start.y}`;
+    const maps = {};
+    Object.keys(nodes[0])
+      .filter(k => k !== 'id' && !k.startsWith('zip_'))
+      .forEach((key) => {
+        const vals = uniq(
+          nodes.flatMap(n =>
+            String(n[key] || '').split(',').map(s => s.trim())
+          )
+        );
+        if (vals.length) {
+          maps[key] = {};
+          vals.forEach((v, i) => {
+            maps[key][v] = COLOR_PALETTE[i % COLOR_PALETTE.length];
+          });
         }
-
-        pathData += ` A 30 30 0 ${largeArcFlag} 1 ${end.x} ${end.y} L 0 0`;
       });
 
-      return { pathData, items, colorMap };
+    setColorMaps(maps);
+  }, [data]);
+
+  // Color schemes for different attributes
+  const getNodeColor = (d) => {
+    if (!colorMaps || !d || !colorBy) return '#9e9e9e';
+
+    // use first item when the field contains a comma‑separated list
+    const raw = d[colorBy];
+    if (raw == null || raw === '') return '#9e9e9e';
+    const firstVal = String(raw).split(',')[0].trim();
+
+    // generic lookup (covers major, school, cu_party, whatever)
+    if (colorMaps[colorBy] && colorMaps[colorBy][firstVal]) {
+      return colorMaps[colorBy][firstVal];
+    }
+
+    // one special case that isn’t in the colour map
+    if (colorBy === 'email-sequence') return '#5F6368';
+
+    // fall‑back grey
+    return '#9e9e9e';
+  };
+
+  // Create multi-part nodes for multiple items
+  /**
+   * Build slice information for ANY comma‑separated multivalue field.
+   * Returns { items, colorMap } or null if single‑valued.
+   */
+  const createNodePath = (d) => {
+    if (!d || !colorMaps || !colorBy) return null;
+
+    const raw = d[colorBy];
+    if (typeof raw !== 'string' || !raw.includes(',')) return null;
+
+    const items = raw.split(',').map(s => s.trim()).filter(Boolean);
+    if (items.length <= 1) return null;
+
+    return {
+      items,
+      colorMap: colorMaps[colorBy] || {}
     };
-
-    if (colorBy === 'language' && d.language && d.language.includes(',')) {
-      const languages = d.language.split(',').map(lang => lang.trim())
-        .filter(lang => lang !== "English");
-
-      return createSegmentedNode(languages, colorMaps.language);
-    }
-    else if (colorBy === 'major' && d.major && d.major.includes(',')) {
-      const majors = d.major.split(',').map(maj => maj.trim());
-      return createSegmentedNode(majors, colorMaps.major);
-    }
-    else if (colorBy === 'cu_friends' && d.cu_friends && d.cu_friends.includes(',')) {
-      const friends = d.cu_friends.split(',').map(f => f.trim());
-      return createSegmentedNode(friends, colorMaps.cu_friends);
-    }
-    return null;
   };
 
   // Setup zoom behavior
@@ -410,9 +377,7 @@ const getNodeColor = (d) => {
           });
 
         // Create node shapes
-        if (nodePathInfo && (colorBy === 'major'
-          || colorBy === 'language'
-          || colorBy === 'cu_friends')) {
+        if (nodePathInfo) {
           // Multiple segment node
           const items = nodePathInfo.items;
           const colorMap = colorMaps[colorBy];
@@ -619,9 +584,7 @@ const getNodeColor = (d) => {
       // --- redraw according to current colorBy ---
       const nodePathInfo = createNodePath(d);  // your existing helper
 
-      if (nodePathInfo && (colorBy === 'major' ||
-        colorBy === 'language' ||
-        colorBy === 'cu_friends')) {
+      if (nodePathInfo) {
         const items = nodePathInfo.items;
         const colorMap = colorMaps[colorBy];
         const anglePerItem = (2 * Math.PI) / items.length;
