@@ -1,14 +1,26 @@
 import React from 'react';
 import './ControlPanel.css';
 
-const COLOR_OPTIONS = [
-  // { value: 'email-sequence', label: 'Email Sequence' },
-  // { value: 'major', label: 'Major' },
-  // { value: 'school', label: 'School' },
-  { value: 'year', label: 'Year' },
-  // { value: 'language', label: 'Language' },
-  { value: 'cu_friends', label: 'Friends Source' }
-];
+// build the menu from whatever keys your JSON actually contains
+import data from '../data/network_data.json';
+
+const toLabel = k =>
+  k.replace(/_/g,' ')
+   .replace(/\b\w/g,c=>c.toUpperCase());
+
+// grab every key from your nodes – id/x/y/zip_* will be filtered out automatically
+const ALL_KEYS = Object.keys(data.nodes[0]);
+const EXTRA_KEYS = ALL_KEYS.filter(k =>
+  k !== 'id' &&
+  !k.startsWith('zip_') &&
+  !['x','y','vx','vy','fx','fy'].includes(k)
+);
+
+// now every EXTRA_KEY (including year & cu_friends) shows up
+const COLOR_OPTIONS = EXTRA_KEYS.map(k => ({
+  value: k,
+  label: toLabel(k)
+}));
 
 const ControlPanel = ({ colorBy, setColorBy }) => (
   <div className="control-panel">

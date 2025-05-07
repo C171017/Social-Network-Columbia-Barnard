@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
 import './NetworkGraph.css';
+import raw from '../data/network_data.json';
 
 function buildGroups(nodes, links) {
   const adj = new Map(nodes.map(n => [n.id, []]));
@@ -50,115 +51,53 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const [colorMaps, setColorMaps] = useState({});
 
   // Load dynamic color mappings
-  useEffect(() => {
-    const generateDynamicColorMaps = async () => {
-      try {
-        const majorData = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
-        const uniqueMajors = majorData.default || [];
+  
 
-        const languageData = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
-        const uniqueLanguages = languageData.default || [];
+// Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
+useEffect(() => {
+  const nodes = data.nodes;
+  const uniq  = arr => [...new Set(arr)].filter(Boolean);
 
-        const yearData = await import('../data/unique_years.json').catch(() => ({ default: [] }));
-        const uniqueYears = yearData.default || [];
-
-        const cuFriendsData = await import('../data/cu_friends.json').catch(() => ({ default: [] }));
-        const uniqueCuFriends = cuFriendsData.default || [];
-
-
-
-        // Generate color maps
-        const newColorMaps = {};
-
-        // Majors color map
-        if (uniqueMajors.length > 0) {
-          newColorMaps.major = {};
-          uniqueMajors.forEach((major, index) => {
-            newColorMaps.major[major] = COLOR_PALETTE[index % COLOR_PALETTE.length];
-          });
-        }
-
-        // Languages color map
-        if (uniqueLanguages.length > 0) {
-          newColorMaps.language = {};
-          uniqueLanguages.forEach((language, index) => {
-            newColorMaps.language[language] = COLOR_PALETTE[index % COLOR_PALETTE.length];
-          });
-        }
-
-        // Years color map
-        if (uniqueYears.length > 0) {
-          newColorMaps.year = {};
-          uniqueYears.forEach((year, index) => {
-            newColorMaps.year[year] = COLOR_PALETTE[index % COLOR_PALETTE.length];
-          });
-        }
-        // CU‑Friends color map
-        if (uniqueCuFriends.length > 0) {
-          newColorMaps.cu_friends = {};
-          uniqueCuFriends.forEach((val, i) => {
-            newColorMaps.cu_friends[val] = COLOR_PALETTE[i % COLOR_PALETTE.length];
-          });
-        }
-
-        // Schools color map (static)
-        newColorMaps.school = {
-          "SEAS": "#4285f4",
-          "CC": "#ea4335",
-          "Barnard": "#34a853",
-          "GS": "#673ab7",
-          "Unknown": "#9e9e9e"
-        };
-
-        setColorMaps(newColorMaps);
-      } catch (error) {
-        console.error('Error generating color maps:', error);
+  const maps = {};
+  Object.keys(nodes[0])
+    .filter(k => k !== 'id' && !k.startsWith('zip_'))
+    .forEach((key) => {
+      const vals = uniq(
+        nodes.flatMap(n =>
+          String(n[key]||'').split(',').map(s=>s.trim())
+        )
+      );
+      if (vals.length) {
+        maps[key] = {};
+        vals.forEach((v,i) => {
+          maps[key][v] = COLOR_PALETTE[i % COLOR_PALETTE.length];
+        });
       }
-    };
+    });
 
-    generateDynamicColorMaps();
-  }, []);
+  setColorMaps(maps);
+}, [data]);
 
   // Color schemes for different attributes
-  const getNodeColor = (d) => {
-    if (!colorMaps || !d) return "#9e9e9e";
+const getNodeColor = (d) => {
+  if (!colorMaps || !d || !colorBy) return '#9e9e9e';
 
-    switch (colorBy) {
-      case 'email-sequence':
-        return '#5F6368';
+  // use first item when the field contains a comma‑separated list
+  const raw = d[colorBy];
+  if (raw == null || raw === '') return '#9e9e9e';
+  const firstVal = String(raw).split(',')[0].trim();
 
-      case 'major':
-        if (!d.major || !colorMaps.major) return "#9e9e9e";
-        const firstMajor = d.major.split(',')[0].trim();
-        return colorMaps.major[firstMajor] || "#9e9e9e";
+  // generic lookup (covers major, school, cu_party, whatever)
+  if (colorMaps[colorBy] && colorMaps[colorBy][firstVal]) {
+    return colorMaps[colorBy][firstVal];
+  }
 
-      case 'school':
-        if (!colorMaps.school) return "#9e9e9e";
-        return colorMaps.school[d.school] || "#9e9e9e";
+  // one special case that isn’t in the colour map
+  if (colorBy === 'email-sequence') return '#5F6368';
 
-      case 'year':
-        if (!colorMaps.year) return "#9e9e9e";
-        return colorMaps.year[d.year] || "#9e9e9e";
-
-      case 'language':
-        if (!d.language || !colorMaps.language) return "#9e9e9e";
-        const languages = d.language.split(',').map(lang => lang.trim());
-
-        for (const language of languages) {
-          if (colorMaps.language[language]) {
-            return colorMaps.language[language];
-          }
-        }
-        return "#9e9e9e";
-
-      case 'cu_friends':
-        if (!d.cu_friends || !colorMaps.cu_friends) return "#9e9e9e";
-        return colorMaps.cu_friends[d.cu_friends] || "#9e9e9e";
-
-      default:
-        return "#9e9e9e";
-    }
-  };
+  // fall‑back grey
+  return '#9e9e9e';
+};
 
   // Create multi-part nodes for multiple items
   const createNodePath = (d) => {
