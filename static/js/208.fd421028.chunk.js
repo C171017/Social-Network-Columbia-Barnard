@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkcolumbia_barnard_network_visualization=self.webpackChunkcolumbia_barnard_network_visualization||[]).push([[208],{208:a=>{a.exports=JSON.parse('["Class","Club/Organization","Mutual friends","Housing/Orientation","No yet","Culture/Identity"]')}}]);
