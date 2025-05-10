@@ -1,5 +1,6 @@
 Major update: update the data to the ones from class survey (Much bigger, continually updating specific data types...)
 
+Update needed: reduce the computation resources. enhanve readability
 ⸻
 
 🔗 Social Network Visualization

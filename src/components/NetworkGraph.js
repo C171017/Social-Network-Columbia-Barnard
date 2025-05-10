@@ -576,13 +576,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
     const g = d3.select(svgRef.current).select('g');
 
-    // remove any old slice paths or circles inside each nodeGroup
     g.selectAll('.node').each(function (d) {
       const nodeGroup = d3.select(this);
-      nodeGroup.selectAll('path, circle').remove();   // keep the <g> & its transform
+      const nodePathInfo = createNodePath(d);
 
-      // --- redraw according to current colorBy ---
-      const nodePathInfo = createNodePath(d);  // your existing helper
+      // Always clear existing slices/circles first
+      nodeGroup.selectAll('path, circle').remove();
 
       if (nodePathInfo) {
         const items = nodePathInfo.items;
@@ -599,18 +598,19 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
               .outerRadius(30)
               .startAngle(startAngle)
               .endAngle(endAngle))
-            .attr('fill', colorMap[item] || '#9e9e9e');
+            .attr('fill', colorMap[item] || '#9e9e9e')
+            .attr('data-slice', item);
         });
       } else {
-        // single‑color circle
         nodeGroup.append('circle')
           .attr('r', 30)
           .attr('fill', getNodeColor(d))
-          .attr('stroke', 'none');
+          .attr('stroke', 'none')
+          .attr('data-single', true);
       }
 
-      // 👉 removed the text/labels earlier, so no need to add them again
-      nodeGroup.append('circle').attr('r', 6);  // center dot
+      // Optional center dot
+      nodeGroup.append('circle').attr('r', 6);
     });
   }, [colorBy, colorMaps]);
 
