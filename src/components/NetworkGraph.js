@@ -238,6 +238,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     };
   }, []);
 
+  const miniSimRef = useRef(null);
+
   // Main visualization effect
   useEffect(() => {
     if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return;
@@ -298,9 +300,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       const simulation = d3.forceSimulation(data.nodes)
         .force('link', linkForce)
-        .force('collision', d3.forceCollide().radius(100));
-      // .force('charge', d3.forceManyBody().strength(-80));
-      // .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
+        .force('collision', d3.forceCollide().radius(100))
+        .alphaDecay(0.1) // controls cooldown speed
+        .on('end', () => {
+          simulation.stop(); // freeze after global layout settles
+        });
 
       // Create links
       const linkGroup = g.append('g');
@@ -403,27 +407,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
             .attr('stroke', 'none');
         }
 
-        // // Add labels
-        // if (d.id === 'target2' || d.id === 'target1') {
-        //   nodeGroup.append('text')
-        //     .attr('text-anchor', 'middle')
-        //     .attr('dy', '0.35em')
-        //     .attr('font-family', 'Arial')
-        //     .attr('font-size', d.id === 'target1' ? '16px' : '14px')
-        //     .text(d.id);
-        // } else {
-        //   // Center dot
-        //   nodeGroup.append('circle')
-        //     .attr('r', 6);
-
-        //   // Group indicator
-        //   nodeGroup.append('text')
-        //     .attr('text-anchor', 'middle')
-        //     .attr('dy', '0.7em')
-        //     .attr('font-family', 'Arial')
-        //     .attr('font-size', '20px')
-        //     .text(`G${d.group}`);
-        // }
+    
       });
 
       // Path calculation for links
@@ -487,13 +471,58 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       // Drag handlers
       function dragstarted(event, d) {
         const myGroup = groupMap.get(d.id);
-        linkForce.strength(link => {
-          const s = groupMap.get(link.source.id ?? link.source);
-          const t = groupMap.get(link.target.id ?? link.target);
-          return (s === myGroup && t === myGroup) ? 1 : 0;
+      
+        const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === myGroup);
+        const groupLinks = data.links.filter(l => {
+          const s = groupMap.get(l.source.id ?? l.source);
+          const t = groupMap.get(l.target.id ?? l.target);
+          return s === myGroup && t === myGroup;
         });
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x; d.fy = d.y;
+      
+        const miniSim = d3.forceSimulation(groupNodes)
+          .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
+          .force('collision', d3.forceCollide().radius(100))
+          .alphaDecay(0)
+
+
+          .on('tick', () => {
+            d3.select(svgRef.current)
+              .selectAll('.node')
+              .filter(n => groupMap.get(n.id) === myGroup)
+              .attr('transform', n => `translate(${n.x},${n.y})`);
+      
+            d3.select(svgRef.current)
+              .selectAll('.link-full')
+              .filter(l => {
+                const s = groupMap.get(l.source.id ?? l.source);
+                const t = groupMap.get(l.target.id ?? l.target);
+                return s === myGroup && t === myGroup;
+              })
+              .attr('d', l => linkPath(l));
+      
+            d3.select(svgRef.current)
+              .selectAll('.link-arrow')
+              .filter(l => {
+                const s = groupMap.get(l.source.id ?? l.source);
+                const t = groupMap.get(l.target.id ?? l.target);
+                return s === myGroup && t === myGroup;
+              })
+              .attr('d', l => {
+                const dx = l.target.x - l.source.x;
+                const dy = l.target.y - l.source.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist === 0) return 'M0,0L0,0';
+                const ux = dx / dist, uy = dy / dist;
+                const sx = l.source.x + ux * 30, sy = l.source.y + uy * 30;
+                const ex = l.source.x + dx * (1 / 3), ey = l.source.y + dy * (1 / 3);
+                return `M${sx},${sy}L${ex},${ey}`;
+              });
+          });
+      
+        miniSimRef.current = miniSim;
+      
+        d.fx = d.x;
+        d.fy = d.y;
       }
 
       function dragged(event, d) {
@@ -502,10 +531,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       }
 
       function dragended(event, d) {
-        simulation.alphaTarget(0);
-        linkForce.strength(1);
+        if (miniSimRef.current) {
+          miniSimRef.current.stop();
+          miniSimRef.current = null;
+        }
+      
         if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
-          d.fx = null; d.fy = null;
+          d.fx = null;
+          d.fy = null;
         }
       }
 
