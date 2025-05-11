@@ -300,7 +300,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       const simulation = d3.forceSimulation(data.nodes)
         .force('link', linkForce)
-        .force('collision', d3.forceCollide().radius(100))
+        .force('collision', d3.forceCollide().radius(120))
         .alphaDecay(0.1) // controls cooldown speed
         .on('end', () => {
           simulation.stop(); // freeze after global layout settles
@@ -481,8 +481,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       
         const miniSim = d3.forceSimulation(groupNodes)
           .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
-          .force('collision', d3.forceCollide().radius(100))
+          .force('collision', d3.forceCollide().radius(80))
           .alphaDecay(0)
+          .force('charge', d3.forceManyBody().strength(-2000))
 
 
           .on('tick', () => {
