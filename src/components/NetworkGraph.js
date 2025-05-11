@@ -338,6 +338,33 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .on('drag', dragged)
           .on('end', dragended));
 
+      let currentHighlight = null;
+
+      node.on('click', (event, d) => {
+        const grp = groupMap.get(d.id);
+        // toggle on/off
+        currentHighlight = (currentHighlight === grp ? null : grp);
+
+        // 1) highlight only that group’s nodes
+        d3.selectAll('.node')
+          .classed('highlight', n => groupMap.get(n.id) === currentHighlight)
+          .classed('dim', n => currentHighlight != null && groupMap.get(n.id) !== currentHighlight);
+
+        // 2) highlight only that group’s links/arrows
+        d3.selectAll('.link-full, .link-arrow')
+          .classed('highlight', l => {
+            const s = groupMap.get(l.source.id ?? l.source);
+            const t = groupMap.get(l.target.id ?? l.target);
+            return s === currentHighlight && t === currentHighlight;
+          })
+          .classed('dim', l => {
+            if (currentHighlight == null) return false;
+            const s = groupMap.get(l.source.id ?? l.source);
+            const t = groupMap.get(l.target.id ?? l.target);
+            return !(s === currentHighlight && t === currentHighlight);
+          });
+      });
+
       // Create tooltip
       d3.select('body').selectAll('.tooltip').remove();
       const tooltip = d3.select('body').append('div')
@@ -407,8 +434,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
             .attr('stroke', 'none');
         }
 
-    
+
       });
+
+
 
       // Path calculation for links
       function linkPath(d) {
@@ -471,14 +500,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       // Drag handlers
       function dragstarted(event, d) {
         const myGroup = groupMap.get(d.id);
-      
+
         const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === myGroup);
         const groupLinks = data.links.filter(l => {
           const s = groupMap.get(l.source.id ?? l.source);
           const t = groupMap.get(l.target.id ?? l.target);
           return s === myGroup && t === myGroup;
         });
-      
+
         const miniSim = d3.forceSimulation(groupNodes)
           .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
           .force('collision', d3.forceCollide().radius(80))
@@ -491,7 +520,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
               .selectAll('.node')
               .filter(n => groupMap.get(n.id) === myGroup)
               .attr('transform', n => `translate(${n.x},${n.y})`);
-      
+
             d3.select(svgRef.current)
               .selectAll('.link-full')
               .filter(l => {
@@ -500,7 +529,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
                 return s === myGroup && t === myGroup;
               })
               .attr('d', l => linkPath(l));
-      
+
             d3.select(svgRef.current)
               .selectAll('.link-arrow')
               .filter(l => {
@@ -519,9 +548,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
                 return `M${sx},${sy}L${ex},${ey}`;
               });
           });
-      
+
         miniSimRef.current = miniSim;
-      
+
         d.fx = d.x;
         d.fy = d.y;
       }
@@ -536,7 +565,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           miniSimRef.current.stop();
           miniSimRef.current = null;
         }
-      
+
         if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
           d.fx = null;
           d.fy = null;

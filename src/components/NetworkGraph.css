@@ -322,5 +322,25 @@ path {
   }
 }
 
+/* 1) Base transition for smooth fade */
+.node, 
+.link-full, 
+.link-arrow {
+  transition: opacity 0.2s;
+}
+
+/* 2) .dim class—anything this gets applied to will fade */
+.dim {
+  /* change 0.2 to e.g. 0.1 for almost‑invisible, or 0.5 for only half‑bright */
+  opacity: 0.2 !important;
+}
+
+/* 3) ensure highlighted nodes/links stay full‑bright */
+.node.highlight,
+.link-full.highlight,
+.link-arrow.highlight {
+  opacity: 1 !important;
+}
+
 
 
