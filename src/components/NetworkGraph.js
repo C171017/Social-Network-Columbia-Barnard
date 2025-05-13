@@ -512,7 +512,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
           .force('collision', d3.forceCollide().radius(80))
           .alphaDecay(0)
-          .force('charge', d3.forceManyBody().strength(-2000))
+          .force('charge', d3.forceManyBody().strength(-1000))
 
 
           .on('tick', () => {

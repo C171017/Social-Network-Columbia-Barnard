@@ -332,7 +332,7 @@ path {
 /* 2) .dim class—anything this gets applied to will fade */
 .dim {
   /* change 0.2 to e.g. 0.1 for almost‑invisible, or 0.5 for only half‑bright */
-  opacity: 0.2 !important;
+  opacity: 0.1 !important;
 }
 
 /* 3) ensure highlighted nodes/links stay full‑bright */
