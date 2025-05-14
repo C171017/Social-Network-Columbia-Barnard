@@ -2,76 +2,46 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 100%;
-  height: 95vh; /* Increased viewport height now that header is removed */
-  margin: 0 auto;
-  padding: 0;
-  border: 3px solid var(--primary-color); /* Thicker border with primary color */
-  border-radius: var(--radius-lg);
+  height: 100vh;
   overflow: hidden;
-  touch-action: none; /* Prevent default touch actions for better zoom handling */
   position: relative;
-  -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile devices */
-  -webkit-touch-callout: none; /* Disables callout on long-press */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* IE/Edge */
-  user-select: none; /* Standard */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Add subtle shadow for depth */
-  background-color: black;
-  position: relative; /* Ensure this is set for absolute positioning to work */
+  touch-action: none;
+  user-select: none;
 }
 
 .control-panel {
-  background-color: var(--bg-light);
-  padding: 12px;
-  border-bottom: 2px solid var(--primary-color);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  width: 100%;
-  flex-shrink: 0;
-  z-index: 10;
   display: flex;
-  justify-content: center; /* Center the control panel content */
+  justify-content: center;
   align-items: center;
+  z-index: 10;
 }
 
-/* Make sure SVG has a higher z-index */
 .visualization-area {
-  position: relative;
-  width: 100%;
-  flex-grow: 1;
   display: flex;
+  flex: 1;
+  position: relative;
   overflow: hidden;
 }
 
 .network-graph {
-  width: 100%;
-  height: 100%;
-  flex-grow: 1;
-  background-color: black; /* Keep this as black */
-  overflow: visible;
-  cursor: grab; /* Show users they can drag the view */
+  flex: 1;
+  background: black;
+  cursor: grab;
   position: relative;
-  z-index: 2; /* Higher than middle-layer */
+  z-index: 2;
 }
 
-/* Node styling */
 .node circle {
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform .3s;
 }
 
 .node text {
   pointer-events: none;
   font-family: var(--font-sans);
-  user-select: none;
   font-weight: 600;
-  text-shadow: 
-    -1px -1px 0 white,
-    1px -1px 0 white,
-    -1px 1px 0 white,
-    1px 1px 0 white;
-  letter-spacing: 0.02em;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+  letter-spacing: .02em;
 }
 
 .node:hover circle {
@@ -79,23 +49,19 @@
   stroke-width: 2px;
 }
 
-/* Link styling */
 path {
-  stroke-opacity: 0.8;
+  stroke-opacity: .8;
 }
 
-/* Tooltip styling */
 .tooltip {
   position: absolute;
   padding: var(--spacing-md);
-  background-color: var(--card-bg);
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  pointer-events: none;
   opacity: 0;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-lg);
-  font-size: 0.9rem;
+  transition: opacity .3s;
+  font-size: .9rem;
   max-width: 250px;
   z-index: 100;
   transform: translateY(10px);
@@ -103,134 +69,83 @@ path {
 }
 
 .tooltip.visible {
-  opacity: 0.96;
+  opacity: .96;
   transform: translateY(0);
 }
 
 .tooltip h4 {
-  margin: 0 0 var(--spacing-sm) 0;
+  margin-bottom: var(--spacing-sm);
   font-size: 1rem;
   font-weight: 600;
   color: var(--primary-color);
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: var(--spacing-xs);
 }
 
 .tooltip p {
   margin: 3px 0;
 }
 
-/* Legend container */
 .legend-container {
   position: absolute;
   bottom: 20px;
-  left: 50%; /* Center horizontally */
-  transform: translateX(-50%); /* Center adjustment */
-  background-color: white;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
   border: 1px solid #dadce0;
   border-radius: 4px;
-  padding: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 100;
   font-size: 14px;
-  text-align: center; /* Center the legend content */
+  text-align: center;
 }
 
-
-/* Layout for smaller screens */
 @media (max-width: 768px) {
-  .network-container {
-    height: 80vh;
-    border-width: 2px; /* Slightly thinner border on mobile */
-  }
-  
-  .control-panel select {
-    min-width: 120px;
-  }
-  
-  .tooltip {
-    max-width: 200px;
-    font-size: 12px;
-  }
-  
-  .tooltip h4 {
-    font-size: 14px;
-  }
-  
-  .zoom-controls {
-    bottom: 15px;
-    right: 15px;
-    padding: 6px;
-    z-index: 100; /* Make sure this is higher than other elements */
-  }
-  
-  
-  .zoom-button, .reset-view-button {
-    width: 38px;
-    height: 38px;
-    font-size: 18px;
-  }
-  
-  .zoom-level {
-    width: 38px;
-    font-size: 12px;
-  }
-  
-  .node text {
-    font-size: 12px;
-  }
-  
+  .network-container { height: 90vh; }
+  .control-panel select { min-width: 120px; }
+  .tooltip { max-width: 200px; font-size: 12px; }
+  .tooltip h4 { font-size: 14px; }
+  .node text { font-size: 12px; }
   .legend-container {
     left: 10px;
     bottom: 10px;
-    transform: none;
     width: calc(100% - 80px);
     font-size: 12px;
+    transform: none;
   }
-  
 }
 
-/* Extra visualization controls */
 .zoom-controls {
   position: absolute;
-  bottom: 25px;
-  right: 25px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   z-index: 100;
-  background-color: var(--card-bg);
+  background: var(--card-bg);
   border-radius: var(--radius-md);
-  padding: 8px;
-  box-shadow: var(--shadow-lg);
-  transition: transform 0.3s ease;
-  border: 2px solid var(--primary-color);
 }
 
 .zoom-controls:hover {
   transform: scale(1.05);
 }
 
-.zoom-button, .reset-view-button {
-  width: 42px;
-  height: 42px;
-  background-color: var(--bg-light);
+.zoom-button,
+.reset-view-button {
+  width: 24px;
+  height: 24px;
   border: 1px solid var(--primary-color);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  font-size: 16px;
   font-weight: bold;
-  font-size: 20px;
-  color: var(--primary-color);
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-light);
+  transition: all .2s;
 }
 
-.zoom-button:hover, .reset-view-button:hover {
-  background-color: var(--primary-color);
-  color: white;
+.zoom-button:hover,
+.reset-view-button:hover {
+  background: var(--primary-color);
+  color: #fff;
   transform: translateY(-2px);
 }
 
@@ -240,107 +155,61 @@ path {
 
 .zoom-level {
   text-align: center;
-  padding: 6px 0;
   font-size: 14px;
   font-weight: 600;
-  background-color: var(--bg-light);
   border-left: 1px solid var(--primary-color);
   border-right: 1px solid var(--primary-color);
-  color: var(--primary-color);
   width: 42px;
   margin: 0 auto;
 }
 
-/* Animation for transitions */
-.node circle, 
-.node path {
-  transition: fill 0.5s ease, stroke 0.3s ease;
-}
-
-/* Additional class for highlighted nodes */
-.node.highlighted circle,
-.node.highlighted path {
-  stroke: #fbbc05;
-  stroke-width: 3px;
-}
-
-/* Fix for the root container to ensure it takes full height */
-#root, body, html {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-/* Make the app container take full height */
-.App {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  padding: 10px;
-  box-sizing: border-box;
-}
-
-/* Center the legend items */
-.legend-container div {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Bottom legend container to be centered */
-.bottom-legend-container {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  margin-top: 10px;
-  width: 100%;
-}
-
-/* Middle layer styling removed - now handled within SVG */
-
-/* Dragable view indicator */
 .network-graph::after {
   content: "Drag to move view";
   position: absolute;
   bottom: 15px;
   left: 15px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 6px 10px;
+  background: rgba(0,0,0,.6);
+  color: #fff;
   border-radius: 4px;
   font-size: 12px;
-  opacity: 0.7;
-  transition: opacity 0.3s ease;
+  opacity: .7;
   pointer-events: none;
 }
 
-/* Hide the indicator on mobile */
 @media (max-width: 768px) {
-  .network-graph::after {
-    display: none;
-  }
+  .network-graph::after { display: none; }
 }
 
-/* 1) Base transition for smooth fade */
-.node, 
-.link-full, 
+.node,
+.link-full,
 .link-arrow {
-  transition: opacity 0.2s;
+  transition: opacity .2s;
 }
 
-/* 2) .dim class—anything this gets applied to will fade */
 .dim {
-  /* change 0.2 to e.g. 0.1 for almost‑invisible, or 0.5 for only half‑bright */
-  opacity: 0.1 !important;
+  opacity: .1 !important;
 }
 
-/* 3) ensure highlighted nodes/links stay full‑bright */
-.node.highlight,
+.node.highlighted circle,
 .link-full.highlight,
 .link-arrow.highlight {
   opacity: 1 !important;
 }
 
+.controls-legend-container {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
 
+  /* shrink-to-fit by default (width: auto on an abs‑pos block) */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;      /* children will stretch to container width */
+  gap: var(--spacing-md);
+  z-index: 100;
+}
 
+/* make each direct child (your ControlPanel wrapper & your .legend) fill that container */
+.controls-legend-container > * {
+  width: 100%;
+}

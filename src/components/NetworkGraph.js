@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
+import Legend       from './Legend';
 import './NetworkGraph.css';
 import raw from '../data/network_data.json';
 
@@ -29,7 +30,7 @@ function buildGroups(nodes, links) {
 
 
 // Define zoom settings
-const ZOOM_MIN = 0.01;
+const ZOOM_MIN = 0.03;
 const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
@@ -39,9 +40,30 @@ const FIXED_AREA_HEIGHT = 25000;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
-  '#4285f4', '#ea4335', '#fbbc05', '#34a853', '#673ab7', '#9C27B0', '#00ACC1',
-  '#FF5722', '#795548', '#607D8B', '#3F51B5', '#009688', '#FFC107', '#8BC34A',
-  '#E91E63', '#9E9E9E'
+  '#D96F6F', // coral red
+  '#78B8A0', // sage green
+  '#FCEB8B', // butter yellow
+  '#8A9CEB', // lavender blue
+  '#F8A785', // soft peach
+  '#B593C4', // soft lilac
+  '#7CCEDC', // aqua mist
+  '#C47CCF', // magenta mist
+  '#D8E97A', // lime sherbet
+  '#F9B4B4', // blush pink
+  '#68A9A9', // muted teal
+  '#E3CFFF', // pale lavender
+  '#B89A74', // sandstone
+  '#FFF8C4', // light cream
+  '#A56969', // dusty rose
+  '#A9EFC4', // mint cream
+  '#A7A775', // olive mist
+  '#FFD2B2', // apricot
+  '#6B6FB0', // slate blue
+  '#8F8F8F', // mid gray
+  '#FBFBFB', // off-white
+  '#3D3D3D', // charcoal
+  '#A1A1A1', // ash gray
+  '#E98DAE'  // soft rose
 ];
 
 const NetworkGraph = ({ colorBy, setColorBy, data }) => {
@@ -136,7 +158,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     // Calculate initial scale to fit the fixed area in the container
     const scaleX = containerWidth / FIXED_AREA_WIDTH;
     const scaleY = containerHeight / FIXED_AREA_HEIGHT;
-    const initialScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale for some margin
+    const initialScale = Math.min(scaleX, scaleY) * 1; 
 
     const initialTransform = d3.zoomIdentity
       .translate(containerWidth / 2, containerHeight / 2)
@@ -684,10 +706,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
   return (
     <div className="network-container">
-      <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
       <div className="visualization-area">
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
+        
+        <div className="controls-legend-container">
+          <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
+          <Legend colorBy={colorBy}/> 
+        </div>
       </div>
     </div>
   );

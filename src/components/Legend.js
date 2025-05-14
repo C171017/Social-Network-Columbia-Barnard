@@ -6,9 +6,30 @@ import data from '../data/network_data.json';
 
 // Standard color palette (d3-inspired)
 const COLOR_PALETTE = [
-  '#4285f4', '#ea4335', '#fbbc05', '#34a853', '#673ab7', '#9C27B0', '#00ACC1',
-  '#FF5722', '#795548', '#607D8B', '#3F51B5', '#009688', '#FFC107', '#8BC34A',
-  '#E91E63', '#9E9E9E'
+  '#D96F6F', // coral red
+  '#78B8A0', // sage green
+  '#FCEB8B', // butter yellow
+  '#8A9CEB', // lavender blue
+  '#F8A785', // soft peach
+  '#B593C4', // soft lilac
+  '#7CCEDC', // aqua mist
+  '#C47CCF', // magenta mist
+  '#D8E97A', // lime sherbet
+  '#F9B4B4', // blush pink
+  '#68A9A9', // muted teal
+  '#E3CFFF', // pale lavender
+  '#B89A74', // sandstone
+  '#FFF8C4', // light cream
+  '#A56969', // dusty rose
+  '#A9EFC4', // mint cream
+  '#A7A775', // olive mist
+  '#FFD2B2', // apricot
+  '#6B6FB0', // slate blue
+  '#8F8F8F', // mid gray
+  '#FBFBFB', // off-white
+  '#3D3D3D', // charcoal
+  '#A1A1A1', // ash gray
+  '#E98DAE'  // soft rose
 ];
 
 const STATIC_LEGEND_ITEMS = {};   // start empty—everything will be filled dynamically
@@ -51,7 +72,7 @@ const Legend = ({ colorBy }) => {
         label: v
       }));
     };
-  
+
     // Build legendItems for every field except id/zip_*
     const items = {};
     Object.keys(data.nodes[0])
@@ -59,7 +80,7 @@ const Legend = ({ colorBy }) => {
       .forEach(k => {
         items[k] = toLegend(k);
       });
-  
+
     setLegendItems(items);
   }, []);
 

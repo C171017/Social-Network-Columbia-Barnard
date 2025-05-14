@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import NetworkGraph from './components/NetworkGraph';
-import Legend from './components/Legend';
+
 import './App.css';
 
 // Try to import the network data, with a fallback for when it doesn't exist yet
@@ -20,10 +20,6 @@ function App() {
       <main>
         <div className="visualization-container">
           <NetworkGraph colorBy={colorBy} setColorBy={setColorBy} data={data} />
-        </div>
-        
-        <div className="sidebar">
-          <Legend colorBy={colorBy} />
         </div>
       </main>
     </div>

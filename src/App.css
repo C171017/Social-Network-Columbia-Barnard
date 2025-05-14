@@ -1,53 +1,34 @@
-.App {
-  text-align: center;
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-color);
-}
-
-.app-header {
-  padding: var(--spacing-md);
-  background-color: var(--card-bg);
-  border-bottom: 3px solid var(--primary-color);
-  box-shadow: var(--shadow-md);
-  z-index: 10;
-  position: relative;
-}
-
-.app-title {
-  font-weight: 600;
+html, body {
   margin: 0;
-  color: var(--primary-color);
-  font-size: 1.4rem;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#root, .App, main, .network-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 main {
   display: flex;
-  flex: 1;
-  height: 100vh; /* Full viewport height now that header is removed */
-  padding: var(--spacing-sm);
-  gap: var(--spacing-md);
-  margin: 0 auto;
-  max-width: 1600px; /* Limit maximum width for better UX on large screens */
+  height: 100vh;
   width: 100%;
+  margin: 0 auto;
 }
 
 .visualization-container {
-  flex: 3;
+  flex: 5;
   position: relative;
   overflow: hidden;
-  background-color: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
 }
 
 .sidebar {
   flex: 1;
-  min-width: 250px;
-  max-width: 400px;
-  background-color: var(--card-bg);
+  background: var(--card-bg);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md);
   overflow-y: auto;
@@ -60,17 +41,13 @@ main {
     padding: var(--spacing-sm);
     gap: var(--spacing-sm);
   }
-  
-  .visualization-container {
-    height: 70vh;
-  }
-  
+
   .sidebar {
     max-width: 100%;
     height: 30vh;
     padding: var(--spacing-sm);
   }
-  
+
   .app-title {
     font-size: 1.2rem;
   }
