@@ -4,6 +4,8 @@
   list-style: none;    /* no default bullets */
   margin: 0;           /* kill default margins */
   padding: 0;          /* kill default indentation */
+  margin-top: 0;
+  padding-top: 0;
   
   /* fill container’s width */
   display: block;

@@ -176,8 +176,14 @@ path {
   pointer-events: none;
 }
 
-@media (max-width: 768px) {
-  .network-graph::after { display: none; }
+@media (max-width: 600px) {
+  .controls-legend-container {
+    flex-direction: row;   /* side‑by‑side */
+    bottom: 10px;
+  }
+  .controls-legend-container > * {
+    width: 50%;            /* split 50/50 */
+  }
 }
 
 .node,
@@ -200,6 +206,8 @@ path {
   position: absolute;
   bottom: 20px;
   right: 20px;
+  gap: 0;   
+  
 
   /* shrink-to-fit by default (width: auto on an abs‑pos block) */
   display: flex;

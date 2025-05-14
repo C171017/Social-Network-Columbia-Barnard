@@ -3,6 +3,7 @@
   margin: 0 auto var(--spacing-md);
   transition: transform .3s;
   width: 100%;
+  margin-bottom: 0;
 }
 .control-panel:hover {
   transform: translateY(-3px);
