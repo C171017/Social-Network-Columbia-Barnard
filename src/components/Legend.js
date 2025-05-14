@@ -6,30 +6,24 @@ import data from '../data/network_data.json';
 
 // Standard color palette (d3-inspired)
 const COLOR_PALETTE = [
-  '#D96F6F', // coral red
-  '#78B8A0', // sage green
-  '#FCEB8B', // butter yellow
-  '#8A9CEB', // lavender blue
-  '#F8A785', // soft peach
-  '#B593C4', // soft lilac
-  '#7CCEDC', // aqua mist
-  '#C47CCF', // magenta mist
-  '#D8E97A', // lime sherbet
-  '#F9B4B4', // blush pink
-  '#68A9A9', // muted teal
-  '#E3CFFF', // pale lavender
-  '#B89A74', // sandstone
-  '#FFF8C4', // light cream
-  '#A56969', // dusty rose
-  '#A9EFC4', // mint cream
-  '#A7A775', // olive mist
-  '#FFD2B2', // apricot
-  '#6B6FB0', // slate blue
-  '#8F8F8F', // mid gray
-  '#FBFBFB', // off-white
-  '#3D3D3D', // charcoal
-  '#A1A1A1', // ash gray
-  '#E98DAE'  // soft rose
+  '#E6194B', // 1. Vivid Red
+  '#3CB44B', // 2. Lime Green
+  '#4363D8', // 3. Strong Blue
+  '#F58231', // 4. Bright Orange
+  '#911EB4', // 5. Bold Purple
+
+  '#46F0F0', // 6. Cyan
+  '#F032E6', // 7. Magenta
+  '#BCF60C', // 8. Neon Lime
+  '#FABEBE', // 9. Soft Pink
+  '#008080', // 10. Teal
+  '#E6BEFF', // 11. Lavender
+  '#9A6324', // 12. Brown
+  '#AAFFC3', // 13. Mint
+  '#FFD8B1', // 14. Peach
+  '#800000', // 15. Maroon
+  '#000075', // 16. Navy
+  '#808000'  // 17. Olive
 ];
 
 const STATIC_LEGEND_ITEMS = {};   // start empty—everything will be filled dynamically
