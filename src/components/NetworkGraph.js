@@ -393,35 +393,35 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         const nodePathInfo = createNodePath(d);
 
         // Add tooltip events
-        nodeGroup
-          .on('mouseover', (event) => {
-            let html = `<h4>ID: ${d.id}</h4>`;
-            html += `<p><strong>Major:</strong> ${d.major}</p>`;
-            html += `<p><strong>School:</strong> ${d.school}</p>`;
-            html += `<p><strong>Year:</strong> ${d.year}</p>`;
-            html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
-            html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
-            html += `<p><strong>Group:</strong> ${d.group}</p>`;
+        // nodeGroup
+        //   .on('mouseover', (event) => {
+        //     let html = `<h4>ID: ${d.id}</h4>`;
+        //     html += `<p><strong>Major:</strong> ${d.major}</p>`;
+        //     html += `<p><strong>School:</strong> ${d.school}</p>`;
+        //     html += `<p><strong>Year:</strong> ${d.year}</p>`;
+        //     html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
+        //     html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
+        //     html += `<p><strong>Group:</strong> ${d.group}</p>`;
 
-            tooltip
-              .html(html)
-              .style('left', (event.pageX + 10) + 'px')
-              .style('top', (event.pageY - 28) + 'px')
-              .classed('visible', true)
-              .transition()
-              .duration(200)
-              .style('opacity', 0.9)
-              .style('transform', 'translateY(0)');
-          })
-          .on('mouseout', () => {
-            tooltip.transition()
-              .duration(300)
-              .style('opacity', 0)
-              .style('transform', 'translateY(10px)')
-              .on('end', function () {
-                tooltip.classed('visible', false);
-              });
-          });
+        //     tooltip
+        //       .html(html)
+        //       .style('left', (event.pageX + 10) + 'px')
+        //       .style('top', (event.pageY - 28) + 'px')
+        //       .classed('visible', true)
+        //       .transition()
+        //       .duration(200)
+        //       .style('opacity', 0.9)
+        //       .style('transform', 'translateY(0)');
+        //   })
+        //   .on('mouseout', () => {
+        //     tooltip.transition()
+        //       .duration(300)
+        //       .style('opacity', 0)
+        //       .style('transform', 'translateY(10px)')
+        //       .on('end', function () {
+        //         tooltip.classed('visible', false);
+        //       });
+        //   });
 
         // Create node shapes
         if (nodePathInfo) {
@@ -528,7 +528,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
           .force('collision', d3.forceCollide().radius(80))
           .alphaDecay(0)
-          .force('charge', d3.forceManyBody().strength(-1000))
+          .force('charge', d3.forceManyBody().strength(-1500))
 
 
           .on('tick', () => {
