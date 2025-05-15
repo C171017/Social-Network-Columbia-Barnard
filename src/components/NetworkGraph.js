@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
-import Legend       from './Legend';
+import Legend from './Legend';
 import './NetworkGraph.css';
 import raw from '../data/network_data.json';
 
@@ -38,6 +38,14 @@ const ZOOM_DEFAULT = 1;
 const FIXED_AREA_WIDTH = 25000;
 const FIXED_AREA_HEIGHT = 25000;
 
+const EXTRA_RECT = {
+  x: 0,
+  y: FIXED_AREA_HEIGHT + 100,
+  width: FIXED_AREA_WIDTH,
+  height: 20000,
+  rx: 10                     // same corner‐radius
+};
+
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
   '#E6194B', // 1. Vivid Red
@@ -60,7 +68,7 @@ const COLOR_PALETTE = [
   '#808000'  // 17. Olive
 ];
 
-const NetworkGraph = ({ colorBy, setColorBy, data }) => {
+const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
   const svgRef = useRef();
   const [zoomLevel, setZoomLevel] = useState(ZOOM_DEFAULT);
   const zoomRef = useRef(null);
@@ -141,7 +149,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
         [-100, -100],
-        [FIXED_AREA_WIDTH + 100, FIXED_AREA_HEIGHT + 100]
+        [FIXED_AREA_WIDTH + 100, FIXED_AREA_HEIGHT + 20000]
       ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
@@ -152,7 +160,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     // Calculate initial scale to fit the fixed area in the container
     const scaleX = containerWidth / FIXED_AREA_WIDTH;
     const scaleY = containerHeight / FIXED_AREA_HEIGHT;
-    const initialScale = Math.min(scaleX, scaleY) * 1; 
+    const initialScale = Math.min(scaleX, scaleY) * 1;
 
     const initialTransform = d3.zoomIdentity
       .translate(containerWidth / 2, containerHeight / 2)
@@ -290,6 +298,17 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr('fill', 'white')
         .attr('pointer-events', 'none');
 
+
+      // Add second white background to the right
+      g.append('rect')
+        .attr('width', EXTRA_RECT.width)
+        .attr('height', EXTRA_RECT.height)
+        .attr('x', EXTRA_RECT.x)
+        .attr('y', EXTRA_RECT.y)
+        .attr('rx', EXTRA_RECT.rx)
+        .attr('fill', 'white')
+        .attr('pointer-events', 'none');
+
       // Set up zoom
       const zoom = setupZoom(svg, g, width, height);
       zoomRef.current = zoom;
@@ -385,7 +404,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       d3.select('body').selectAll('.tooltip').remove();
       const tooltip = d3.select('body').append('div')
         .attr('class', 'tooltip')
-        .style('opacity', 0);
+        .style('opacity', 0)
+        .style('pointer-events', 'none');
 
       // Add node shapes and tooltips
       node.each(function (d) {
@@ -393,35 +413,35 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         const nodePathInfo = createNodePath(d);
 
         // Add tooltip events
-        // nodeGroup
-        //   .on('mouseover', (event) => {
-        //     let html = `<h4>ID: ${d.id}</h4>`;
-        //     html += `<p><strong>Major:</strong> ${d.major}</p>`;
-        //     html += `<p><strong>School:</strong> ${d.school}</p>`;
-        //     html += `<p><strong>Year:</strong> ${d.year}</p>`;
-        //     html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
-        //     html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
-        //     html += `<p><strong>Group:</strong> ${d.group}</p>`;
+        nodeGroup
+          .on('mouseover', (event) => {
+            let html = `<h4>ID: ${d.id}</h4>`;
+            html += `<p><strong>Major:</strong> ${d.cu_major}</p>`;
+            // html += `<p><strong>School:</strong> ${d.school}</p>`;
+            // html += `<p><strong>Year:</strong> ${d.year}</p>`;
+            // html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
+            // html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
+            // html += `<p><strong>Group:</strong> ${d.group}</p>`;
 
-        //     tooltip
-        //       .html(html)
-        //       .style('left', (event.pageX + 10) + 'px')
-        //       .style('top', (event.pageY - 28) + 'px')
-        //       .classed('visible', true)
-        //       .transition()
-        //       .duration(200)
-        //       .style('opacity', 0.9)
-        //       .style('transform', 'translateY(0)');
-        //   })
-        //   .on('mouseout', () => {
-        //     tooltip.transition()
-        //       .duration(300)
-        //       .style('opacity', 0)
-        //       .style('transform', 'translateY(10px)')
-        //       .on('end', function () {
-        //         tooltip.classed('visible', false);
-        //       });
-        //   });
+            tooltip
+              .html(html)
+              .style('left', (event.pageX + 10) + 'px')
+              .style('top', (event.pageY - 28) + 'px')
+              .classed('visible', true)
+              .transition()
+              .duration(200)
+              .style('opacity', 0.9)
+              .style('transform', 'translateY(0)');
+          })
+          .on('mouseout', () => {
+            tooltip.transition()
+              .duration(300)
+              .style('opacity', 0)
+              .style('transform', 'translateY(10px)')
+              .on('end', function () {
+                tooltip.classed('visible', false);
+              });
+          });
 
         // Create node shapes
         if (nodePathInfo) {
@@ -484,14 +504,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       // Update positions during simulation
       simulation.on('tick', () => {
         // Apply boundary constraints to fixed area
-        node.each(d => {
-          const nodeRadius = 30;
-          const margin = nodeRadius + 5;
+        // node.each(d => {
+        //   const nodeRadius = 30;
+        //   const margin = nodeRadius + 5;
 
-          // Constrain nodes to stay within the fixed area dimensions
-          d.x = Math.max(margin, Math.min(FIXED_AREA_WIDTH - margin, d.x));
-          d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
-        });
+        //   // Constrain nodes to stay within the fixed area dimensions
+        //   d.x = Math.max(margin, Math.min(FIXED_AREA_WIDTH - margin, d.x));
+        //   d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
+        // });
 
         // Full‐length links
         svg.selectAll('.link-full').attr('d', d => linkPath(d));
@@ -607,9 +627,20 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const centres = [];
       const rng = () => Math.random();
 
+      // ── ADD THIS ──
       for (let g = 0; g < groupCount; g++) {
-        let ok = false, attempt = 0, rad = groupR[g] + PAD;
+        // 1) if group is “large,” drop it into the EXTRA_RECT
+        if (groupSizes[g] > largeGroupThreshold) {
+          const margin = groupR[g] + PAD;
+          centres[g] = {
+            x: EXTRA_RECT.x + margin + rng() * (EXTRA_RECT.width - 2 * margin),
+            y: EXTRA_RECT.y + margin + rng() * (EXTRA_RECT.height - 2 * margin)
+          };
+          continue;
+        }
 
+        // 2) otherwise do the usual Poisson‑disk placement
+        let ok = false, attempt = 0, rad = groupR[g] + PAD;
         while (!ok) {
           const cand = {
             x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
@@ -703,10 +734,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       <div className="visualization-area">
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
-        
+
         <div className="controls-legend-container">
           <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
-          <Legend colorBy={colorBy}/> 
+          <Legend colorBy={colorBy} />
         </div>
       </div>
     </div>
