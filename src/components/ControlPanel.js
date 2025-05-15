@@ -12,7 +12,7 @@ const toLabel = k =>
 const ALL_KEYS = Object.keys(data.nodes[0]);
 const EXTRA_KEYS = ALL_KEYS.filter(k =>
   k !== 'id' &&
-  k !== 'cu_major_1' &&
+  k !== 'cu_major' &&
   !k.startsWith('zip_') &&
   !['x','y','vx','vy','fx','fy'].includes(k)
 );
