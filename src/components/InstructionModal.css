@@ -1,0 +1,54 @@
+/* src/components/InstructionModal.css */
+
+.instr-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .instr-box {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 520px; /* previously likely 360–420px — now expanded */
+    max-width: 90vw;
+    font-family: system-ui, sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .instr-box h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+  }
+  
+  .instr-box ul {
+    padding-left: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .instr-box li {
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+  }
+  
+  .instr-box p {
+    margin-bottom: 0.75rem;
+  }
+  
+  .instr-close {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+  }

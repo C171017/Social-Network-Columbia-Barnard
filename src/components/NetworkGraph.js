@@ -121,33 +121,36 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   const handleSearch = () => {
     const id = searchTerm.trim();
     if (!id) return;
-    // find the node’s <g> by datum.id
+  
+    // ① clear *all* old matches right away
+    d3.select(svgRef.current)
+      .selectAll('.search-match')
+      .classed('search-match', false);
+  
+    // ② find your node
     const nodeG = d3.select(svgRef.current)
       .selectAll('.node')
       .filter(d => String(d.id) === id);
-    if (!nodeG.empty()) {
-      // highlight it
-      nodeG.classed('search-match', true);
-      // pan+zoom so it’s centered
-      const [[x0, y0], [x1, y1]] = nodeG.node().getBBox().width
-        ? [[d => d.x, d => d.y], [d => d.x, d => d.y]]
-        : null;
-      // simpler: get its transform center
-      const transform = d3.zoomTransform(svgRef.current);
-      const { x: cx, y: cy } = nodeG.datum();
-      const k = transform.k;
-      const svg = d3.select(svgRef.current);
-      const w = svgRef.current.clientWidth;
-      const h = window.innerHeight * 0.7;
-      const newT = d3.zoomIdentity
-        .translate(w / 2 - cx * k, h / 2 - cy * k)
-        .scale(k);
-      d3.select(svgRef.current)
-        .transition().duration(500)
-        .call(zoomRef.current.transform, newT);
-    } else {
-      alert(`No node with id="${id}"`);
+  
+    if (nodeG.empty()) {
+      return alert(`No node with id="${id}"`);
     }
+  
+    // ③ highlight just that one
+    nodeG.classed('search-match', true);
+  
+    // ④ pan/zoom to center it
+    const { x: cx, y: cy, } = nodeG.datum();
+    const { k } = d3.zoomTransform(svgRef.current);
+    const w = svgRef.current.clientWidth;
+    const h = window.innerHeight * 0.7;
+    const newT = d3.zoomIdentity
+      .translate(w / 2 - cx * k, h / 2 - cy * k)
+      .scale(k);
+  
+    d3.select(svgRef.current)
+      .transition().duration(500)
+      .call(zoomRef.current.transform, newT);
   };
 
   // Color schemes for different attributes

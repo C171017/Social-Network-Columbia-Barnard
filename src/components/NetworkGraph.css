@@ -222,5 +222,10 @@ path {
   width: 100%;
 }
 
-.search-match circle { stroke: gold; stroke-width: 4px; }
+/* give the matched node a thick glowing outline */
+.search-match circle {
+  stroke: gold;
+  stroke-width: 6px;
+  filter: drop-shadow(0 0 8px gold);
+}
 
