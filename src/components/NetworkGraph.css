@@ -222,4 +222,5 @@ path {
   width: 100%;
 }
 
+.search-match circle { stroke: gold; stroke-width: 4px; }
 
