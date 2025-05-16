@@ -10,7 +10,7 @@ export default function InstructionModal({ onClose }) {
         <p>Here’s how to navigate the graph:</p>
         <ul>
           <li>🤚 <strong>Press & hold</strong> a node to unfold its entire group.</li>
-          <li>🎯 <strong>Click</strong> any node to focus on that group.</li>
+          <li>🎯 <strong>Click</strong> any node to toggle focus on that group.</li>
           <li>⚙️ Use the control panel at the <strong>bottom-right</strong> to change the viewing property.</li>
           <li>🔎 Type an ID into the search box (or press “f”), then hit Enter/Go to jump straight to that node.</li>
         </ul>
