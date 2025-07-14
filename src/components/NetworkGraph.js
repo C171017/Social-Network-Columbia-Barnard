@@ -1,9 +1,20 @@
+////////////////////////////////////////////
+////////////////////////////////////////////
+//Imports (导入模块)
+
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
 import Legend from './Legend';
 import './NetworkGraph.css';
 import raw from '../data/network_data.json';
+////////////////////////////////////////////
+////////////////////////////////////////////
+
+
+/////////////////////////////////////////////
+/////////////////////////////////////////////
+//buildGroups 函数（构建群组）
 
 function buildGroups(nodes, links) {
   const adj = new Map(nodes.map(n => [n.id, []]));
@@ -28,6 +39,9 @@ function buildGroups(nodes, links) {
   return groupMap;                     // use groupMap.get(node.id)
 }
 
+//////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+//常量配置（Configuration Constants)
 
 // Define zoom settings
 const ZOOM_MIN = 0.03;
@@ -68,7 +82,10 @@ const COLOR_PALETTE = [
   '#808000'  // 17. Olive
 ];
 
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
+//	4.	组件定义和 State 初始化
 
 const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
   const svgRef = useRef();
@@ -80,6 +97,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   // at top of component
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef(null);
+
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+
+//5. 颜色映射生成 useEffect
 
   // Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
   useEffect(() => {
@@ -106,6 +128,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     setColorMaps(maps);
   }, [data]);
 
+
+  ///////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////
+
+  //6.快捷键聚焦搜索框useEffect
+
   // focus the search box whenever user presses “f”
   useEffect(() => {
     const onKeyDown = e => {
@@ -117,6 +145,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  ////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////
+
+  // 7.	handleSearch 搜索处理函数
 
   const handleSearch = () => {
     const id = searchTerm.trim();
@@ -152,6 +185,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       .transition().duration(500)
       .call(zoomRef.current.transform, newT);
   };
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+// 8.	getNodeColor & createNodePath (节点着色 & 多值拆分)
 
   // Color schemes for different attributes
   const getNodeColor = (d) => {
@@ -194,6 +232,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     };
   };
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// 9.	setupZoom 缩放行为设置
+
+
   // Setup zoom behavior
   const setupZoom = (svg, g, containerWidth, containerHeight) => {
     const zoom = d3.zoom()
@@ -229,56 +273,65 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     return zoom;
   };
 
+
+  ////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////
+
+  //	10.	缩放按钮 & 重置视图
+
   // Handle zoom buttons
-  const handleZoom = (newZoom, duration = 300) => {
-    if (svgRef.current && zoomRef.current) {
-      const svg = d3.select(svgRef.current);
-      const currentTransform = d3.zoomTransform(svg.node());
+  // const handleZoom = (newZoom, duration = 300) => {
+  //   if (svgRef.current && zoomRef.current) {
+  //     const svg = d3.select(svgRef.current);
+  //     const currentTransform = d3.zoomTransform(svg.node());
 
-      const transform = newZoom === null
-        ? d3.zoomIdentity
-        : d3.zoomIdentity
-          .translate(currentTransform.x, currentTransform.y)
-          .scale(newZoom);
+  //     const transform = newZoom === null
+  //       ? d3.zoomIdentity
+  //       : d3.zoomIdentity
+  //         .translate(currentTransform.x, currentTransform.y)
+  //         .scale(newZoom);
 
-      svg.transition().duration(duration).call(zoomRef.current.transform, transform);
-    }
-  };
+  //     svg.transition().duration(duration).call(zoomRef.current.transform, transform);
+  //   }
+  // };
 
-  const handleZoomIn = () => {
-    if (zoomLevel < ZOOM_MAX) {
-      handleZoom(Math.min(zoomLevel + 0.25, ZOOM_MAX));
-    }
-  };
+  // const handleZoomIn = () => {
+  //   if (zoomLevel < ZOOM_MAX) {
+  //     handleZoom(Math.min(zoomLevel + 0.25, ZOOM_MAX));
+  //   }
+  // };
 
-  const handleZoomOut = () => {
-    if (zoomLevel > ZOOM_MIN) {
-      handleZoom(Math.max(zoomLevel - 0.25, ZOOM_MIN));
-    }
-  };
+  // const handleZoomOut = () => {
+  //   if (zoomLevel > ZOOM_MIN) {
+  //     handleZoom(Math.max(zoomLevel - 0.25, ZOOM_MIN));
+  //   }
+  // };
 
-  const handleResetView = () => {
-    if (svgRef.current && zoomRef.current) {
-      const svg = d3.select(svgRef.current);
-      const containerWidth = svgRef.current.parentElement.clientWidth;
-      const containerHeight = window.innerHeight * 0.7;
+  // const handleResetView = () => {
+  //   if (svgRef.current && zoomRef.current) {
+  //     const svg = d3.select(svgRef.current);
+  //     const containerWidth = svgRef.current.parentElement.clientWidth;
+  //     const containerHeight = window.innerHeight * 0.7;
 
-      // Calculate scale to fit the fixed area in the container
-      const scaleX = containerWidth / FIXED_AREA_WIDTH;
-      const scaleY = containerHeight / FIXED_AREA_HEIGHT;
-      const optimalScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale
+  //     // Calculate scale to fit the fixed area in the container
+  //     const scaleX = containerWidth / FIXED_AREA_WIDTH;
+  //     const scaleY = containerHeight / FIXED_AREA_HEIGHT;
+  //     const optimalScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale
 
-      const transform = d3.zoomIdentity
-        .translate(containerWidth / 2, containerHeight / 2)
-        .scale(optimalScale)
-        .translate(-FIXED_AREA_WIDTH / 2, -FIXED_AREA_HEIGHT / 2);
+  //     const transform = d3.zoomIdentity
+  //       .translate(containerWidth / 2, containerHeight / 2)
+  //       .scale(optimalScale)
+  //       .translate(-FIXED_AREA_WIDTH / 2, -FIXED_AREA_HEIGHT / 2);
 
-      svg.transition()
-        .duration(500)
-        .call(zoomRef.current.transform, transform)
-        .on('end', () => svg.style('cursor', 'grab'));
-    }
-  };
+  //     svg.transition()
+  //       .duration(500)
+  //       .call(zoomRef.current.transform, transform)
+  //       .on('end', () => svg.style('cursor', 'grab'));
+  //   }
+  // };
+  
+  ////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////
 
   // Window resize handler
   useEffect(() => {
