@@ -1,197 +1,180 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
-import Legend from './Legend';
 import './NetworkGraph.css';
-import raw from '../data/network_data.json';
-
-function buildGroups(nodes, links) {
-  const adj = new Map(nodes.map(n => [n.id, []]));
-  links.forEach(l => {
-    adj.get(l.source.id ?? l.source).push(l.target.id ?? l.target);
-    adj.get(l.target.id ?? l.target).push(l.source.id ?? l.source);
-  });
-
-  let current = 0;
-  const groupMap = new Map();          // node-id ➜ group #
-  nodes.forEach(n => {
-    if (groupMap.has(n.id)) return;
-    const stack = [n.id];
-    while (stack.length) {
-      const id = stack.pop();
-      if (groupMap.has(id)) continue;
-      groupMap.set(id, current);
-      adj.get(id).forEach(nei => stack.push(nei));
-    }
-    current += 1;
-  });
-  return groupMap;                     // use groupMap.get(node.id)
-}
-
 
 // Define zoom settings
-const ZOOM_MIN = 0.03;
+const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 1;
 const ZOOM_DEFAULT = 1;
 
 // Fixed visualization area dimensions (regardless of screen size)
-const FIXED_AREA_WIDTH = 25000;
-const FIXED_AREA_HEIGHT = 25000;
-
-const EXTRA_RECT = {
-  x: 0,
-  y: FIXED_AREA_HEIGHT + 100,
-  width: FIXED_AREA_WIDTH,
-  height: 20000,
-  rx: 10                     // same corner‐radius
-};
+const FIXED_AREA_WIDTH = 15000;
+const FIXED_AREA_HEIGHT = 15000;
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
-  '#E6194B', // 1. Vivid Red
-  '#3CB44B', // 2. Lime Green
-  '#4363D8', // 3. Strong Blue
-  '#F58231', // 4. Bright Orange
-  '#911EB4', // 5. Bold Purple
-
-  '#46F0F0', // 6. Cyan
-  '#F032E6', // 7. Magenta
-  '#BCF60C', // 8. Neon Lime
-  '#FABEBE', // 9. Soft Pink
-  '#008080', // 10. Teal
-  '#E6BEFF', // 11. Lavender
-  '#9A6324', // 12. Brown
-  '#AAFFC3', // 13. Mint
-  '#FFD8B1', // 14. Peach
-  '#800000', // 15. Maroon
-  '#000075', // 16. Navy
-  '#808000'  // 17. Olive
+  '#4285f4', '#ea4335', '#fbbc05', '#34a853', '#673ab7', '#9C27B0', '#00ACC1',
+  '#FF5722', '#795548', '#607D8B', '#3F51B5', '#009688', '#FFC107', '#8BC34A',
+  '#E91E63', '#9E9E9E'
 ];
 
-
-
-const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
+const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const svgRef = useRef();
   const [zoomLevel, setZoomLevel] = useState(ZOOM_DEFAULT);
   const zoomRef = useRef(null);
   const [colorMaps, setColorMaps] = useState({});
 
-
-  // at top of component
-  const [searchTerm, setSearchTerm] = useState('');
-  const searchInputRef = useRef(null);
-
-  // Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
+  // Load dynamic color mappings
   useEffect(() => {
-    const nodes = data.nodes;
-    const uniq = arr => [...new Set(arr)].filter(Boolean);
+    const generateDynamicColorMaps = async () => {
+      try {
+        let uniqueMajors = [];
+        let uniqueLanguages = [];
+        let uniqueYears = [];
 
-    const maps = {};
-    Object.keys(nodes[0])
-      .filter(k => k !== 'id' && !k.startsWith('zip_'))
-      .forEach((key) => {
-        const vals = uniq(
-          nodes.flatMap(n =>
-            String(n[key] || '').split(',').map(s => s.trim())
-          )
-        );
-        if (vals.length) {
-          maps[key] = {};
-          vals.forEach((v, i) => {
-            maps[key][v] = COLOR_PALETTE[i % COLOR_PALETTE.length];
+        try {
+          const majorData = await import('../data/unique_majors.json').catch(() => ({ default: [] }));
+          const languageData = await import('../data/unique_languages.json').catch(() => ({ default: [] }));
+          const yearData = await import('../data/unique_years.json').catch(() => ({ default: [] }));
+
+          uniqueMajors = majorData.default || [];
+          uniqueLanguages = languageData.default || [];
+          uniqueYears = yearData.default || [];
+        } catch (error) {
+          console.warn('Dynamic data files not found');
+        }
+
+        // Generate color maps
+        const newColorMaps = {};
+
+        // Majors color map
+        if (uniqueMajors.length > 0) {
+          newColorMaps.major = {};
+          uniqueMajors.forEach((major, index) => {
+            newColorMaps.major[major] = COLOR_PALETTE[index % COLOR_PALETTE.length];
           });
         }
-      });
 
-    setColorMaps(maps);
-  }, [data]);
+        // Languages color map
+        if (uniqueLanguages.length > 0) {
+          newColorMaps.language = {};
+          uniqueLanguages.forEach((language, index) => {
+            newColorMaps.language[language] = COLOR_PALETTE[index % COLOR_PALETTE.length];
+          });
+        }
 
-  // focus the search box whenever user presses “f”
-  useEffect(() => {
-    const onKeyDown = e => {
-      if (e.key === 'f' && document.activeElement !== searchInputRef.current) {
-        e.preventDefault();
-        searchInputRef.current.focus();
+        // Years color map
+        if (uniqueYears.length > 0) {
+          newColorMaps.year = {};
+          uniqueYears.forEach((year, index) => {
+            newColorMaps.year[year] = COLOR_PALETTE[index % COLOR_PALETTE.length];
+          });
+        }
+
+        // Schools color map (static)
+        newColorMaps.school = {
+          "SEAS": "#4285f4",
+          "CC": "#ea4335",
+          "Barnard": "#34a853",
+          "GS": "#673ab7",
+          "Unknown": "#9e9e9e"
+        };
+
+        setColorMaps(newColorMaps);
+      } catch (error) {
+        console.error('Error generating color maps:', error);
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
 
-  const handleSearch = () => {
-    const id = searchTerm.trim();
-    if (!id) return;
-  
-    // ① clear *all* old matches right away
-    d3.select(svgRef.current)
-      .selectAll('.search-match')
-      .classed('search-match', false);
-  
-    // ② find your node
-    const nodeG = d3.select(svgRef.current)
-      .selectAll('.node')
-      .filter(d => String(d.id) === id);
-  
-    if (nodeG.empty()) {
-      return alert(`No node with id="${id}"`);
-    }
-  
-    // ③ highlight just that one
-    nodeG.classed('search-match', true);
-  
-    // ④ pan/zoom to center it
-    const { x: cx, y: cy, } = nodeG.datum();
-    const { k } = d3.zoomTransform(svgRef.current);
-    const w = svgRef.current.clientWidth;
-    const h = window.innerHeight * 0.7;
-    const newT = d3.zoomIdentity
-      .translate(w / 2 - cx * k, h / 2 - cy * k)
-      .scale(k);
-  
-    d3.select(svgRef.current)
-      .transition().duration(500)
-      .call(zoomRef.current.transform, newT);
-  };
+    generateDynamicColorMaps();
+  }, []);
 
   // Color schemes for different attributes
   const getNodeColor = (d) => {
-    if (!colorMaps || !d || !colorBy) return '#9e9e9e';
+    if (!colorMaps || !d) return "#9e9e9e";
 
-    // use first item when the field contains a comma‑separated list
-    const raw = d[colorBy];
-    if (raw == null || raw === '') return '#9e9e9e';
-    const firstVal = String(raw).split(',')[0].trim();
+    switch (colorBy) {
+      case 'email-sequence':
+        return '#5F6368';
 
-    // generic lookup (covers major, school, cu_party, whatever)
-    if (colorMaps[colorBy] && colorMaps[colorBy][firstVal]) {
-      return colorMaps[colorBy][firstVal];
+      case 'major':
+        if (!d.major || !colorMaps.major) return "#9e9e9e";
+        const firstMajor = d.major.split(',')[0].trim();
+        return colorMaps.major[firstMajor] || "#9e9e9e";
+
+      case 'school':
+        if (!colorMaps.school) return "#9e9e9e";
+        return colorMaps.school[d.school] || "#9e9e9e";
+
+      case 'year':
+        if (!colorMaps.year) return "#9e9e9e";
+        return colorMaps.year[d.year] || "#9e9e9e";
+
+      case 'language':
+        if (!d.language || !colorMaps.language) return "#9e9e9e";
+        const languages = d.language.split(',').map(lang => lang.trim());
+
+        for (const language of languages) {
+          if (colorMaps.language[language]) {
+            return colorMaps.language[language];
+          }
+        }
+        return "#9e9e9e";
+
+      default:
+        return "#9e9e9e";
     }
-
-    // one special case that isn’t in the colour map
-    if (colorBy === 'email-sequence') return '#5F6368';
-
-    // fall‑back grey
-    return '#9e9e9e';
   };
 
   // Create multi-part nodes for multiple items
-  /**
-   * Build slice information for ANY comma‑separated multivalue field.
-   * Returns { items, colorMap } or null if single‑valued.
-   */
   const createNodePath = (d) => {
-    if (!d || !colorMaps || !colorBy) return null;
+    if (!d || !colorMaps) return null;
 
-    const raw = d[colorBy];
-    if (typeof raw !== 'string' || !raw.includes(',')) return null;
+    const createSegmentedNode = (items, colorMap) => {
+      if (items.length === 0) return null;
 
-    const items = raw.split(',').map(s => s.trim()).filter(Boolean);
-    if (items.length <= 1) return null;
+      const anglePerItem = (2 * Math.PI) / items.length;
+      let pathData = '';
 
-    return {
-      items,
-      colorMap: colorMaps[colorBy] || {}
+      items.forEach((item, i) => {
+        const startAngle = i * anglePerItem;
+        const endAngle = (i + 1) * anglePerItem;
+
+        const start = {
+          x: 30 * Math.sin(startAngle),
+          y: -30 * Math.cos(startAngle)
+        };
+
+        const end = {
+          x: 30 * Math.sin(endAngle),
+          y: -30 * Math.cos(endAngle)
+        };
+
+        const largeArcFlag = endAngle - startAngle <= Math.PI ? 0 : 1;
+
+        if (i === 0) {
+          pathData = `M 0 0 L ${start.x} ${start.y}`;
+        }
+
+        pathData += ` A 30 30 0 ${largeArcFlag} 1 ${end.x} ${end.y} L 0 0`;
+      });
+
+      return { pathData, items, colorMap };
     };
+
+    if (colorBy === 'language' && d.language && d.language.includes(',')) {
+      const languages = d.language.split(',').map(lang => lang.trim())
+        .filter(lang => lang !== "English");
+
+      return createSegmentedNode(languages, colorMaps.language);
+    }
+    else if (colorBy === 'major' && d.major && d.major.includes(',')) {
+      const majors = d.major.split(',').map(maj => maj.trim());
+      return createSegmentedNode(majors, colorMaps.major);
+    }
+
+    return null;
   };
 
   // Setup zoom behavior
@@ -200,7 +183,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
         [-100, -100],
-        [FIXED_AREA_WIDTH + 100, FIXED_AREA_HEIGHT + 20000]
+        [FIXED_AREA_WIDTH + 100, FIXED_AREA_HEIGHT + 100]
       ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
@@ -211,8 +194,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     // Calculate initial scale to fit the fixed area in the container
     const scaleX = containerWidth / FIXED_AREA_WIDTH;
     const scaleY = containerHeight / FIXED_AREA_HEIGHT;
-    const initialScale = Math.min(scaleX, scaleY) * 1;
-
+    const initialScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale for some margin
+    
     const initialTransform = d3.zoomIdentity
       .translate(containerWidth / 2, containerHeight / 2)
       .scale(initialScale)
@@ -262,12 +245,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       const svg = d3.select(svgRef.current);
       const containerWidth = svgRef.current.parentElement.clientWidth;
       const containerHeight = window.innerHeight * 0.7;
-
+      
       // Calculate scale to fit the fixed area in the container
       const scaleX = containerWidth / FIXED_AREA_WIDTH;
       const scaleY = containerHeight / FIXED_AREA_HEIGHT;
       const optimalScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale
-
+      
       const transform = d3.zoomIdentity
         .translate(containerWidth / 2, containerHeight / 2)
         .scale(optimalScale)
@@ -313,8 +296,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     };
   }, []);
 
-  const miniSimRef = useRef(null);
-
   // Main visualization effect
   useEffect(() => {
     if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return;
@@ -349,68 +330,170 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('fill', 'white')
         .attr('pointer-events', 'none');
 
-
-      // Add second white background to the right
-      g.append('rect')
-        .attr('width', EXTRA_RECT.width)
-        .attr('height', EXTRA_RECT.height)
-        .attr('x', EXTRA_RECT.x)
-        .attr('y', EXTRA_RECT.y)
-        .attr('rx', EXTRA_RECT.rx)
-        .attr('fill', 'white')
-        .attr('pointer-events', 'none');
-
       // Set up zoom
       const zoom = setupZoom(svg, g, width, height);
       zoomRef.current = zoom;
 
-      // Add a single universal arrow marker
+      // Add arrow markers
       const defs = svg.append("defs");
+
+      // First type (red)
       defs.append("marker")
-        .attr("id", "arrow")
+        .attr("id", "arrow-first")
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 1)
+        .attr("refX", 60)
         .attr("refY", 0)
-        .attr("markerWidth", 30)
-        .attr("markerHeight", 30)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
         .attr("orient", "auto")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#808080");
+        .attr("fill", "#FF0000");
 
-      // ➊ define linkForce with initial strength = 1
-      const linkForce = d3.forceLink(data.links)
-        .id(d => d.id)
-        .distance(400)
-        .strength(1);
+      // Second type (orange)
+      defs.append("marker")
+        .attr("id", "arrow-second")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#FF7F00");
 
+      // Third type (yellow)
+      defs.append("marker")
+        .attr("id", "arrow-third")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#FFD700");
+
+      // Fourth type (green)
+      defs.append("marker")
+        .attr("id", "arrow-fourth")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#00FF00");
+
+      // Fifth type (blue)
+      defs.append("marker")
+        .attr("id", "arrow-fifth")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#0000FF");
+
+      // Sixth type (indigo)
+      defs.append("marker")
+        .attr("id", "arrow-sixth")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#4B0082");
+
+      // Seventh type (violet)
+      defs.append("marker")
+        .attr("id", "arrow-seventh")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#9400D3");
+
+      // Default marker for any other types
+      defs.append("marker")
+        .attr("id", "arrow-default")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 60)
+        .attr("refY", 0)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#808080"); // Gray for any link type beyond seventh
+
+
+      // Set up the simulation - using fixed center coordinates
       const simulation = d3.forceSimulation(data.nodes)
-        .force('link', linkForce)
-        .force('collision', d3.forceCollide().radius(120))
-        .alphaDecay(0.1) // controls cooldown speed
-        .on('end', () => {
-          simulation.stop(); // freeze after global layout settles
-        });
+        .force('link', d3.forceLink(data.links)
+          .id(d => d.id)
+          .distance(250))
+        .force('charge', d3.forceManyBody().strength(-70))
+        .force('center', d3.forceCenter(FIXED_AREA_WIDTH / 2, FIXED_AREA_HEIGHT / 2).strength(0.00))
+        .force('collision', d3.forceCollide().radius(50));
 
       // Create links
       const linkGroup = g.append('g');
 
-      data.links.forEach(ld => {
-        // Full‐length link
-        linkGroup.append('path')
-          .datum(ld)
-          .attr('class', 'link-full')
-          .attr('fill', 'none')
-          .attr('stroke', '#999')
-          .attr('stroke-width', 3);
-        // Short 1/3 link for arrow
-        linkGroup.append('path')
-          .datum(ld)
-          .attr('class', 'link-arrow')
-          .attr('fill', 'none')
-          .attr('stroke', 'none')
-          .attr('marker-end', 'url(#arrow)');
+      data.links.forEach(linkData => {
+        try {
+          // Determine link color based on type using rainbow colors
+          let linkColor = '#808080';  // Default gray
+          if (linkData.type === 'first') linkColor = '#FF0000';    // Red
+          if (linkData.type === 'second') linkColor = '#FF7F00';   // Orange
+          if (linkData.type === 'third') linkColor = '#FFD700';    // Yellow
+          if (linkData.type === 'fourth') linkColor = '#00FF00';   // Green
+          if (linkData.type === 'fifth') linkColor = '#0000FF';    // Blue
+          if (linkData.type === 'sixth') linkColor = '#4B0082';    // Indigo
+          if (linkData.type === 'seventh') linkColor = '#9400D3';  // Violet
+      
+          // Determine arrow marker
+          let arrowMarker = '';
+          if (linkData.type === 'first') arrowMarker = 'url(#arrow-first)';
+          if (linkData.type === 'second') arrowMarker = 'url(#arrow-second)';
+          if (linkData.type === 'third') arrowMarker = 'url(#arrow-third)';
+          if (linkData.type === 'fourth') arrowMarker = 'url(#arrow-fourth)';
+          if (linkData.type === 'fifth') arrowMarker = 'url(#arrow-fifth)';
+          if (linkData.type === 'sixth') arrowMarker = 'url(#arrow-sixth)';
+          if (linkData.type === 'seventh') arrowMarker = 'url(#arrow-seventh)';
+          if (!arrowMarker && linkData.type && linkData.type !== 'direct') {
+            arrowMarker = 'url(#arrow-default)';  // Use default for any other types
+          }
+      
+          // Create line with arrow
+          linkGroup.append('path')
+            .datum(linkData)
+            .attr('fill', 'none')
+            .attr('stroke', linkColor)
+            .attr('stroke-width', 3)
+            .attr('stroke-dasharray', linkData.type === 'direct' ? '8,8' : null)
+            .attr('class', 'link-line')
+            .attr('marker-end', arrowMarker);
+        } catch (error) {
+          console.error("Error processing link:", error);
+        }
       });
+
+      const link = linkGroup.selectAll('.link-line');
 
       // Create nodes
       const node = g.append('g')
@@ -424,39 +507,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .on('drag', dragged)
           .on('end', dragended));
 
-      let currentHighlight = null;
-
-      node.on('click', (event, d) => {
-        const grp = groupMap.get(d.id);
-        // toggle on/off
-        currentHighlight = (currentHighlight === grp ? null : grp);
-
-        // 1) highlight only that group’s nodes
-        d3.selectAll('.node')
-          .classed('highlight', n => groupMap.get(n.id) === currentHighlight)
-          .classed('dim', n => currentHighlight != null && groupMap.get(n.id) !== currentHighlight);
-
-        // 2) highlight only that group’s links/arrows
-        d3.selectAll('.link-full, .link-arrow')
-          .classed('highlight', l => {
-            const s = groupMap.get(l.source.id ?? l.source);
-            const t = groupMap.get(l.target.id ?? l.target);
-            return s === currentHighlight && t === currentHighlight;
-          })
-          .classed('dim', l => {
-            if (currentHighlight == null) return false;
-            const s = groupMap.get(l.source.id ?? l.source);
-            const t = groupMap.get(l.target.id ?? l.target);
-            return !(s === currentHighlight && t === currentHighlight);
-          });
-      });
-
       // Create tooltip
       d3.select('body').selectAll('.tooltip').remove();
       const tooltip = d3.select('body').append('div')
         .attr('class', 'tooltip')
-        .style('opacity', 0)
-        .style('pointer-events', 'none');
+        .style('opacity', 0);
 
       // Add node shapes and tooltips
       node.each(function (d) {
@@ -467,12 +522,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         nodeGroup
           .on('mouseover', (event) => {
             let html = `<h4>ID: ${d.id}</h4>`;
-            html += `<p><strong>Major:</strong> ${d.cu_major}</p>`;
-            // html += `<p><strong>School:</strong> ${d.school}</p>`;
-            // html += `<p><strong>Year:</strong> ${d.year}</p>`;
-            // html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
-            // html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
-            // html += `<p><strong>Group:</strong> ${d.group}</p>`;
+            html += `<p><strong>Major:</strong> ${d.major}</p>`;
+            html += `<p><strong>School:</strong> ${d.school}</p>`;
+            html += `<p><strong>Year:</strong> ${d.year}</p>`;
+            html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
+            html += `<p><strong>Group:</strong> ${d.group}</p>`;
 
             tooltip
               .html(html)
@@ -495,7 +549,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           });
 
         // Create node shapes
-        if (nodePathInfo) {
+        if (nodePathInfo && (colorBy === 'major' || colorBy === 'language')) {
           // Multiple segment node
           const items = nodePathInfo.items;
           const colorMap = colorMaps[colorBy];
@@ -516,24 +570,42 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         } else {
           // Single color node
           nodeGroup.append('circle')
-            .attr('r', 30)
+            .attr('r', d.id === 'target2' || d.id === 'target1' ? 35 : 30)
             .attr('fill', getNodeColor(d))
-            .attr('stroke', 'none');
+            .attr('stroke', d.id === 'target2' ? '#FF3D00' : (d.id === 'target1' ? '#4285F4' : 'none'))
+            .attr('stroke-width', d.id === 'target2' || d.id === 'target1' ? 3 : 0);
         }
 
+        // Add labels
+        if (d.id === 'target2' || d.id === 'target1') {
+          nodeGroup.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '0.35em')
+            .attr('font-family', 'Arial')
+            .attr('font-size', d.id === 'target1' ? '16px' : '14px')
+            .text(d.id);
+        } else {
+          // Center dot
+          nodeGroup.append('circle')
+            .attr('r', 6);
 
+          // Group indicator
+          nodeGroup.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '0.7em')
+            .attr('font-family', 'Arial')
+            .attr('font-size', '20px')
+            .text(`G${d.group}`);
+        }
       });
-
-
 
       // Path calculation for links
       function linkPath(d) {
         if (!d || !d.source || !d.target) return "M0,0L0,0";
         if (typeof d.source.x === 'undefined' || typeof d.target.x === 'undefined') return "M0,0L0,0";
 
-        const sourceRadius = 30;
-        const targetRadius = 30;
-
+        const sourceRadius = d.source.id === 'target2' || d.source.id === 'target1' ? 35 : 30;
+        const targetRadius = d.target.id === 'target2' || d.target.id === 'target1' ? 35 : 30;
 
         const dx = d.target.x - d.source.x;
         const dy = d.target.y - d.source.y;
@@ -555,29 +627,23 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       // Update positions during simulation
       simulation.on('tick', () => {
         // Apply boundary constraints to fixed area
-        // node.each(d => {
-        //   const nodeRadius = 30;
-        //   const margin = nodeRadius + 5;
+        node.each(d => {
+          const nodeRadius = (d.id === 'target2' || d.id === 'target1') ? 35 : 30;
+          const margin = nodeRadius + 5;
 
-        //   // Constrain nodes to stay within the fixed area dimensions
-        //   d.x = Math.max(margin, Math.min(FIXED_AREA_WIDTH - margin, d.x));
-        //   d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
-        // });
+          // Constrain nodes to stay within the fixed area dimensions
+          d.x = Math.max(margin, Math.min(FIXED_AREA_WIDTH - margin, d.x));
+          d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
+        });
 
-        // Full‐length links
-        svg.selectAll('.link-full').attr('d', d => linkPath(d));
-        // Arrow paths at 1/3 from source → target
-        svg.selectAll('.link-arrow').attr('d', d => {
-          const dx = d.target.x - d.source.x;
-          const dy = d.target.y - d.source.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist === 0) return 'M0,0L0,0';
-          const ux = dx / dist, uy = dy / dist;
-          // start just outside source circle
-          const sx = d.source.x + ux * 30, sy = d.source.y + uy * 30;
-          // end at 1/3 of the link
-          const ex = d.source.x + dx * (1 / 3), ey = d.source.y + dy * (1 / 3);
-          return `M${sx},${sy}L${ex},${ey}`;
+        // Update link paths
+        link.attr('d', function (d) {
+          try {
+            return linkPath(d);
+          } catch (error) {
+            console.error("Error updating link path:", error);
+            return "M0,0L0,0";
+          }
         });
 
         // Update node positions
@@ -586,58 +652,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       // Drag handlers
       function dragstarted(event, d) {
-        const myGroup = groupMap.get(d.id);
+        if (event.sourceEvent) {
+          event.sourceEvent.stopPropagation();
+          event.sourceEvent.preventDefault();
+        }
 
-        const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === myGroup);
-        const groupLinks = data.links.filter(l => {
-          const s = groupMap.get(l.source.id ?? l.source);
-          const t = groupMap.get(l.target.id ?? l.target);
-          return s === myGroup && t === myGroup;
-        });
-
-        const miniSim = d3.forceSimulation(groupNodes)
-          .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
-          .force('collision', d3.forceCollide().radius(80))
-          .alphaDecay(0)
-          .force('charge', d3.forceManyBody().strength(-1500))
-
-
-          .on('tick', () => {
-            d3.select(svgRef.current)
-              .selectAll('.node')
-              .filter(n => groupMap.get(n.id) === myGroup)
-              .attr('transform', n => `translate(${n.x},${n.y})`);
-
-            d3.select(svgRef.current)
-              .selectAll('.link-full')
-              .filter(l => {
-                const s = groupMap.get(l.source.id ?? l.source);
-                const t = groupMap.get(l.target.id ?? l.target);
-                return s === myGroup && t === myGroup;
-              })
-              .attr('d', l => linkPath(l));
-
-            d3.select(svgRef.current)
-              .selectAll('.link-arrow')
-              .filter(l => {
-                const s = groupMap.get(l.source.id ?? l.source);
-                const t = groupMap.get(l.target.id ?? l.target);
-                return s === myGroup && t === myGroup;
-              })
-              .attr('d', l => {
-                const dx = l.target.x - l.source.x;
-                const dy = l.target.y - l.source.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist === 0) return 'M0,0L0,0';
-                const ux = dx / dist, uy = dy / dist;
-                const sx = l.source.x + ux * 30, sy = l.source.y + uy * 30;
-                const ex = l.source.x + dx * (1 / 3), ey = l.source.y + dy * (1 / 3);
-                return `M${sx},${sy}L${ex},${ey}`;
-              });
-          });
-
-        miniSimRef.current = miniSim;
-
+        if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
       }
@@ -648,132 +668,53 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       }
 
       function dragended(event, d) {
-        if (miniSimRef.current) {
-          miniSimRef.current.stop();
-          miniSimRef.current = null;
-        }
-
-        if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
+        if (!event.active) simulation.alphaTarget(0);
+        if (!isTouchDevice()) {
           d.fx = null;
           d.fy = null;
         }
       }
 
-      /* ──────────  GROUP‑AWARE RESPAWN  v2  ────────── */
-      const groupMap = buildGroups(data.nodes, data.links);
-      const groupCount = Math.max(...groupMap.values()) + 1;
-
-      /* 1️  how many nodes in each group? */
-      const groupSizes = Array.from({ length: groupCount }, () => 0);
-      data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
-
-      /* 2️  radius per group */
-      const BASE_R = 200;   // px, smallest bubble
-      const PX_PER_NODE = 25;    // px extra per √node
-      const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
-
-      /* 3️  Poisson‑disk style placement of centres */
-      const PAD = 700;
-      const tries = 30;
-      const centres = [];
-      const rng = () => Math.random();
-
-      // ── ADD THIS ──
-      for (let g = 0; g < groupCount; g++) {
-        // 1) if group is “large,” drop it into the EXTRA_RECT
-        if (groupSizes[g] > largeGroupThreshold) {
-          const margin = groupR[g] + PAD;
-          centres[g] = {
-            x: EXTRA_RECT.x + margin + rng() * (EXTRA_RECT.width - 2 * margin),
-            y: EXTRA_RECT.y + margin + rng() * (EXTRA_RECT.height - 2 * margin)
-          };
-          continue;
-        }
-
-        // 2) otherwise do the usual Poisson‑disk placement
-        let ok = false, attempt = 0, rad = groupR[g] + PAD;
-        while (!ok) {
-          const cand = {
-            x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
-            y: rad + rng() * (FIXED_AREA_HEIGHT - 2 * rad)
-          };
-
-          ok = centres.every((c, j) => {
-            const dx = c.x - cand.x;
-            const dy = c.y - cand.y;
-            const minGap = groupR[j] + groupR[g] + PAD;
-            return dx * dx + dy * dy >= minGap * minGap;
-          });
-
-          if (!ok && ++attempt === tries) {
-            attempt = 0;
-            rad = Math.max(groupR[g], rad - 100);
-          }
-          if (ok) centres[g] = cand;
-        }
+      function isTouchDevice() {
+        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       }
 
-      /* 4️  scatter individual nodes inside their bubble */
-      data.nodes.forEach(n => {
-        const g = groupMap.get(n.id);
-        const c = centres[g];
-
-        const θ = rng() * 2 * Math.PI;
-        const r = rng() * (groupR[g] - 40);
-        n.x = c.x + r * Math.cos(θ);
-        n.y = c.y + r * Math.sin(θ);
+      // Initial node positioning within the fixed area
+      data.nodes.forEach(node => {
+        if (node.id === 'target2') {
+          node.x = FIXED_AREA_WIDTH * 0.9;  // Top right corner
+          node.y = FIXED_AREA_HEIGHT * 0.1;
+          node.fx = node.x;
+          node.fy = node.y;
+        } else if (node.id === 'target1') {
+          node.x = FIXED_AREA_WIDTH * 0.1;  // Bottom left corner
+          node.y = FIXED_AREA_HEIGHT * 0.9;
+          node.fx = node.x;
+          node.fy = node.y;
+        } else {
+          const distance = Math.random();
+          const angle = Math.random() * 2 * Math.PI;
+          const radius = Math.pow(distance, 0.8) * Math.min(FIXED_AREA_WIDTH, FIXED_AREA_HEIGHT) * 0.4;
+          node.x = FIXED_AREA_WIDTH / 2 + radius * Math.cos(angle);
+          node.y = FIXED_AREA_HEIGHT / 2 + radius * Math.sin(angle);
+        }
       });
+
+      // Release fixed positions after initial layout
+      setTimeout(() => {
+        data.nodes.forEach(node => {
+          if (node.id === 'target1' || node.id === 'target2') {
+            node.fx = null;
+            node.fy = null;
+          }
+        });
+        simulation.alpha(0.3).restart();
+      }, 2000);
 
     } catch (error) {
       console.error("Error rendering network visualization:", error);
     }
-  }, [data]);
-
-
-  // Lightweight recolor effect
-
-  useEffect(() => {
-    if (!svgRef.current || !colorMaps) return;
-
-    const g = d3.select(svgRef.current).select('g');
-
-    g.selectAll('.node').each(function (d) {
-      const nodeGroup = d3.select(this);
-      const nodePathInfo = createNodePath(d);
-
-      // Always clear existing slices/circles first
-      nodeGroup.selectAll('path, circle').remove();
-
-      if (nodePathInfo) {
-        const items = nodePathInfo.items;
-        const colorMap = colorMaps[colorBy];
-        const anglePerItem = (2 * Math.PI) / items.length;
-
-        items.forEach((item, i) => {
-          const startAngle = i * anglePerItem;
-          const endAngle = (i + 1) * anglePerItem;
-
-          nodeGroup.append('path')
-            .attr('d', d3.arc()
-              .innerRadius(0)
-              .outerRadius(30)
-              .startAngle(startAngle)
-              .endAngle(endAngle))
-            .attr('fill', colorMap[item] || '#9e9e9e')
-            .attr('data-slice', item);
-        });
-      } else {
-        nodeGroup.append('circle')
-          .attr('r', 30)
-          .attr('fill', getNodeColor(d))
-          .attr('stroke', 'none')
-          .attr('data-single', true);
-      }
-
-      // Optional center dot
-      nodeGroup.append('circle').attr('r', 6);
-    });
-  }, [colorBy, colorMaps]);
+  }, [colorBy, data, colorMaps]);
 
   const preventAndCall = (handler) => (e) => {
     e.preventDefault();
@@ -782,27 +723,22 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
   return (
     <div className="network-container">
-      <div className="visualization-area">
-        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 100 }}>
-          <input
-            ref={searchInputRef}
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-            placeholder="Search ID (press f)"
-            style={{ padding: '4px 8px', fontSize: '0.9rem' }}
-          />
-          <button onClick={handleSearch}>Go</button>
-        </div>
+      <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
 
+      <div className="visualization-area">
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
-
-        <div className="controls-legend-container">
-          <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
-          <Legend colorBy={colorBy} />
-        </div>
       </div>
+
+      {/* <div className="zoom-controls">
+        <button className="zoom-button" onClick={handleZoomIn} aria-label="Zoom in"
+          onTouchStart={preventAndCall(handleZoomIn)}>+</button>
+        <div className="zoom-level">{Math.round(zoomLevel * 100)}%</div>
+        <button className="zoom-button" onClick={handleZoomOut} aria-label="Zoom out"
+          onTouchStart={preventAndCall(handleZoomOut)}>−</button>
+        <button className="reset-view-button" onClick={handleResetView} aria-label="Reset view"
+          onTouchStart={preventAndCall(handleResetView)}>⟳</button>
+      </div> */}
     </div>
   );
 };
