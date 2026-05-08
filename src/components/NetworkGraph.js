@@ -11,6 +11,8 @@ import './NetworkGraph.css';
 ////////////////////////////////////////////
 
 
+const NODE_RADIUS = 30;
+
 /////////////////////////////////////////////
 /////////////////////////////////////////////
 //buildGroups 函数（构建群组）
@@ -38,6 +40,36 @@ function buildGroups(nodes, links) {
   return groupMap;                     // use groupMap.get(node.id)
 }
 
+function isLargeGroupNode(d, groupMap, groupSizes, largeGroupThreshold) {
+  const gi = groupMap.get(d.id);
+  if (gi == null) return false;
+  return groupSizes[gi] > largeGroupThreshold;
+}
+
+// Large-group nodes: gradient ring just outside colored disk.
+function appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold) {
+  if (!isLargeGroupNode(d, groupMap, groupSizes, largeGroupThreshold)) return;
+  const EDGE_OUTPAD = 2;
+  const NODE_RING_STROKE = 3.5;
+  const rStrokeCenter = NODE_RADIUS + EDGE_OUTPAD + NODE_RING_STROKE / 2;
+  const rGlow = NODE_RADIUS + 5;
+
+  nodeGroup.append('circle')
+    .attr('class', 'large-group-accent-ring-glow')
+    .attr('pointer-events', 'none')
+    .attr('r', rGlow)
+    .attr('fill', 'url(#large-node-ring-fill)');
+
+  nodeGroup.append('circle')
+    .attr('class', 'large-group-accent-ring')
+    .attr('pointer-events', 'none')
+    .attr('r', rStrokeCenter)
+    .attr('fill', 'none')
+    .attr('stroke', 'url(#large-node-border-grad)')
+    .attr('stroke-width', NODE_RING_STROKE)
+    .attr('stroke-opacity', 0.88);
+}
+
 //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////
 //常量配置（Configuration Constants)
@@ -46,17 +78,42 @@ function buildGroups(nodes, links) {
 const ZOOM_MIN = 0.03;
 const ZOOM_MAX = 1;
 
-// Fixed visualization area dimensions (regardless of screen size)
-const FIXED_AREA_WIDTH = 25000;
-const FIXED_AREA_HEIGHT = 25000;
+// Canvas: circle clip, soft rim; white↔grey onset and drag clamp share CANVAS_WHITE_INSET / OUTER_RADIUS.
+const LEGACY_SQUARE_SIDE = 25000;
+const CIRCLE_DIAMETER = LEGACY_SQUARE_SIDE * 1.5;
+const CIRCLE_RADIUS = CIRCLE_DIAMETER / 2;
+const CIRCLE_CX = CIRCLE_RADIUS;
+const CIRCLE_CY = CIRCLE_RADIUS;
 
-const EXTRA_RECT = {
-  x: 0,
-  y: FIXED_AREA_HEIGHT + 100,
-  width: FIXED_AREA_WIDTH,
-  height: 20000,
-  rx: 10                     // same corner‐radius
-};
+const CANVAS_EDGE_FEATHER_HALF = 2800;
+const CANVAS_BACKDROP_RADIUS = CIRCLE_RADIUS + CANVAS_EDGE_FEATHER_HALF;
+const VISUAL_SCENE_EXTENT = CIRCLE_DIAMETER + 2 * CANVAS_EDGE_FEATHER_HALF;
+const CANVAS_WHITE_INSET = 1300;
+const CANVAS_WHITE_OUTER_RADIUS = Math.max(0, CIRCLE_RADIUS - CANVAS_EDGE_FEATHER_HALF - CANVAS_WHITE_INSET);
+const NODE_MOVABLE_DISK_PAD = NODE_RADIUS + 20;
+const NODE_MOVE_MAX_RADIUS_FROM_CENTER = Math.max(
+  600,
+  CANVAS_WHITE_OUTER_RADIUS - NODE_MOVABLE_DISK_PAD
+);
+
+function clampNodeCenterToMovableDisk(x, y) {
+  const dx = x - CIRCLE_CX;
+  const dy = y - CIRCLE_CY;
+  const dist = Math.hypot(dx, dy);
+  if (!Number.isFinite(dist) || dist === 0 || dist <= NODE_MOVE_MAX_RADIUS_FROM_CENTER) {
+    return { x, y };
+  }
+  const s = NODE_MOVE_MAX_RADIUS_FROM_CENTER / dist;
+  return { x: CIRCLE_CX + dx * s, y: CIRCLE_CY + dy * s };
+}
+
+function clampNodesInPlace(nodes) {
+  nodes.forEach((n) => {
+    const c = clampNodeCenterToMovableDisk(n.x, n.y);
+    n.x = c.x;
+    n.y = c.y;
+  });
+}
 
 // Standard color palette for dynamic generation
 const COLOR_PALETTE = [
@@ -238,23 +295,23 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     const zoom = d3.zoom()
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
-        [-100, -100],
-        [FIXED_AREA_WIDTH + 100, FIXED_AREA_HEIGHT + 20000]
+        [CIRCLE_CX - CANVAS_BACKDROP_RADIUS - 100, CIRCLE_CY - CANVAS_BACKDROP_RADIUS - 100],
+        [CIRCLE_CX + CANVAS_BACKDROP_RADIUS + 100, CIRCLE_CY + CANVAS_BACKDROP_RADIUS + 100]
       ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
       })
       .filter(event => event.type !== 'dblclick' && !event.ctrlKey);
 
-    // Calculate initial scale to fit the fixed area in the container
-    const scaleX = containerWidth / FIXED_AREA_WIDTH;
-    const scaleY = containerHeight / FIXED_AREA_HEIGHT;
-    const initialScale = Math.min(scaleX, scaleY) * 1;
+    // Fit the circular bounding box in the viewport
+    const scaleX = containerWidth / VISUAL_SCENE_EXTENT;
+    const scaleY = containerHeight / VISUAL_SCENE_EXTENT;
+    const initialScale = Math.min(scaleX, scaleY);
 
     const initialTransform = d3.zoomIdentity
       .translate(containerWidth / 2, containerHeight / 2)
       .scale(initialScale)
-      .translate(-FIXED_AREA_WIDTH / 2, -FIXED_AREA_HEIGHT / 2);
+      .translate(-CIRCLE_CX, -CIRCLE_CY);
 
     svg.call(zoom)
       .call(zoom.transform, initialTransform)
@@ -268,66 +325,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   };
 
 
-  ////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////
-
-  //	10.	缩放按钮 & 重置视图
-
-  // Handle zoom buttons
-  // const handleZoom = (newZoom, duration = 300) => {
-  //   if (svgRef.current && zoomRef.current) {
-  //     const svg = d3.select(svgRef.current);
-  //     const currentTransform = d3.zoomTransform(svg.node());
-
-  //     const transform = newZoom === null
-  //       ? d3.zoomIdentity
-  //       : d3.zoomIdentity
-  //         .translate(currentTransform.x, currentTransform.y)
-  //         .scale(newZoom);
-
-  //     svg.transition().duration(duration).call(zoomRef.current.transform, transform);
-  //   }
-  // };
-
-  // const handleZoomIn = () => {
-  //   if (zoomLevel < ZOOM_MAX) {
-  //     handleZoom(Math.min(zoomLevel + 0.25, ZOOM_MAX));
-  //   }
-  // };
-
-  // const handleZoomOut = () => {
-  //   if (zoomLevel > ZOOM_MIN) {
-  //     handleZoom(Math.max(zoomLevel - 0.25, ZOOM_MIN));
-  //   }
-  // };
-
-  // const handleResetView = () => {
-  //   if (svgRef.current && zoomRef.current) {
-  //     const svg = d3.select(svgRef.current);
-  //     const containerWidth = svgRef.current.parentElement.clientWidth;
-  //     const containerHeight = window.innerHeight * 0.7;
-
-  //     // Calculate scale to fit the fixed area in the container
-  //     const scaleX = containerWidth / FIXED_AREA_WIDTH;
-  //     const scaleY = containerHeight / FIXED_AREA_HEIGHT;
-  //     const optimalScale = Math.min(scaleX, scaleY) * 0.9; // 90% of the fit scale
-
-  //     const transform = d3.zoomIdentity
-  //       .translate(containerWidth / 2, containerHeight / 2)
-  //       .scale(optimalScale)
-  //       .translate(-FIXED_AREA_WIDTH / 2, -FIXED_AREA_HEIGHT / 2);
-
-  //     svg.transition()
-  //       .duration(500)
-  //       .call(zoomRef.current.transform, transform)
-  //       .on('end', () => svg.style('cursor', 'grab'));
-  //   }
-  // };
-  
-  ////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////
-
-  // Window resize handler
   useEffect(() => {
     const handleResize = () => {
       if (svgRef.current?.parentElement) {
@@ -383,49 +380,211 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet');
 
-      // Create a group for the visualization
+      const defs = svg.append('defs');
+      defs.append('clipPath')
+        .attr('id', 'viewport-circle-clip')
+        .append('circle')
+        .attr('cx', CIRCLE_CX)
+        .attr('cy', CIRCLE_CY)
+        .attr('r', CIRCLE_RADIUS);
+
+      const R_grad = CANVAS_BACKDROP_RADIUS;
+      const H = CANVAS_EDGE_FEATHER_HALF;
+      const innerSpan = Math.max(CIRCLE_RADIUS - CANVAS_WHITE_OUTER_RADIUS, 1);
+      const innerAt = t => CANVAS_WHITE_OUTER_RADIUS + innerSpan * t;
+      const pctOfDist = dist => `${(Math.min(dist, R_grad) / R_grad) * 100}%`;
+
+      const canvasEdgeGrad = defs.append('radialGradient')
+        .attr('id', 'canvas-edge-soft')
+        .attr('gradientUnits', 'userSpaceOnUse')
+        .attr('cx', CIRCLE_CX)
+        .attr('cy', CIRCLE_CY)
+        .attr('fx', CIRCLE_CX)
+        .attr('fy', CIRCLE_CY)
+        .attr('r', R_grad);
+
+      canvasEdgeGrad.append('stop')
+        .attr('offset', '0%')
+        .attr('stop-color', '#fafbfc');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(CANVAS_WHITE_OUTER_RADIUS))
+        .attr('stop-color', '#fafbfc');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(innerAt(0.18)))
+        .attr('stop-color', '#eef0f4');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(innerAt(0.38)))
+        .attr('stop-color', '#d4d7de');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(innerAt(0.58)))
+        .attr('stop-color', '#a8adb8');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(innerAt(0.78)))
+        .attr('stop-color', '#8b909b');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(CIRCLE_RADIUS))
+        .attr('stop-color', '#6e737d');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.22))
+        .attr('stop-color', '#4b4e56');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.44))
+        .attr('stop-color', '#32343a');
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.64))
+        .attr('stop-color', '#1b1c20')
+        .attr('stop-opacity', 0.82);
+      canvasEdgeGrad.append('stop')
+        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.84))
+        .attr('stop-color', '#0a0a0b')
+        .attr('stop-opacity', 0.42);
+      canvasEdgeGrad.append('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', '#000000')
+        .attr('stop-opacity', 0);
+      defs.append('marker')
+        .attr('id', 'arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 1)
+        .attr('refY', 0)
+        .attr('markerWidth', 30)
+        .attr('markerHeight', 30)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#808080');
+
+      const borderGrad = defs.append('linearGradient')
+        .attr('id', 'large-node-border-grad')
+        .attr('gradientUnits', 'objectBoundingBox')
+        .attr('x1', '0%')
+        .attr('y1', '25%')
+        .attr('x2', '100%')
+        .attr('y2', '100%');
+
+      borderGrad.append('stop')
+        .attr('offset', '0%')
+        .attr('stop-color', '#94a3b8')
+        .attr('stop-opacity', 0.38);
+      borderGrad.append('stop')
+        .attr('offset', '22%')
+        .attr('stop-color', '#818cf8')
+        .attr('stop-opacity', 0.28);
+      borderGrad.append('stop')
+        .attr('offset', '48%')
+        .attr('stop-color', '#e0e7ff')
+        .attr('stop-opacity', 0.58);
+      borderGrad.append('stop')
+        .attr('offset', '72%')
+        .attr('stop-color', '#6366f1')
+        .attr('stop-opacity', 0.68);
+      borderGrad.append('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', '#4338ca')
+        .attr('stop-opacity', 0.4);
+
+      const ringFill = defs.append('radialGradient')
+        .attr('id', 'large-node-ring-fill')
+        .attr('gradientUnits', 'objectBoundingBox')
+        .attr('cx', '50%')
+        .attr('cy', '50%')
+        .attr('r', '50%');
+
+      ringFill.append('stop')
+        .attr('offset', '68%')
+        .attr('stop-color', '#6366f1')
+        .attr('stop-opacity', 0);
+      ringFill.append('stop')
+        .attr('offset', '84%')
+        .attr('stop-color', '#a5b4fc')
+        .attr('stop-opacity', 0.12);
+      ringFill.append('stop')
+        .attr('offset', '93%')
+        .attr('stop-color', '#cbd5e1')
+        .attr('stop-opacity', 0.16);
+      ringFill.append('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', '#6366f1')
+        .attr('stop-opacity', 0);
+
+      // Create a group for the visualization (zoom target)
       const g = svg.append('g');
 
-      // Add white background layer - now uses fixed dimensions
-      g.append('rect')
-        .attr('width', FIXED_AREA_WIDTH)
-        .attr('height', FIXED_AREA_HEIGHT)
-        .attr('x', 0)
-        .attr('y', 0)
-        .attr('rx', 10)
-        .attr('fill', 'white')
-        .attr('pointer-events', 'none');
+      g.append('g')
+        .attr('class', 'canvas-backdrop')
+        .attr('pointer-events', 'none')
+        .append('circle')
+        .attr('cx', CIRCLE_CX)
+        .attr('cy', CIRCLE_CY)
+        .attr('r', CANVAS_BACKDROP_RADIUS)
+        .attr('fill', 'url(#canvas-edge-soft)');
 
+      const world = g.append('g')
+        .attr('clip-path', 'url(#viewport-circle-clip)')
+        .attr('class', 'network-world');
 
-      // Add second white background to the right
-      g.append('rect')
-        .attr('width', EXTRA_RECT.width)
-        .attr('height', EXTRA_RECT.height)
-        .attr('x', EXTRA_RECT.x)
-        .attr('y', EXTRA_RECT.y)
-        .attr('rx', EXTRA_RECT.rx)
-        .attr('fill', 'white')
-        .attr('pointer-events', 'none');
+      /* ──────────  GROUP‑AWARE LAYOUT (inside disk) ────────── */
+      const groupMap = buildGroups(data.nodes, data.links);
+      const groupCount = Math.max(...groupMap.values()) + 1;
 
-      // Set up zoom
+      const groupSizes = Array.from({ length: groupCount }, () => 0);
+      data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
+
+      const BASE_R = 200;
+      const PX_PER_NODE = 25;
+      const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
+
+      const PAD = 700;
+      const tries = 30;
+      const centres = [];
+      const rng = () => Math.random();
+
+      const uniformPointInDisk = (maxDistFromCentre) => {
+        const theta = rng() * 2 * Math.PI;
+        const radius = Math.sqrt(rng()) * Math.max(0, maxDistFromCentre);
+        return {
+          x: CIRCLE_CX + radius * Math.cos(theta),
+          y: CIRCLE_CY + radius * Math.sin(theta)
+        };
+      };
+
+      for (let gi = 0; gi < groupCount; gi++) {
+        let ok = false;
+        let attempt = 0;
+        let extended = groupR[gi] + PAD;
+
+        while (!ok) {
+          const maxCentreDist = Math.max(100, CIRCLE_RADIUS - extended);
+          const cand = uniformPointInDisk(maxCentreDist);
+
+          ok = centres.every((c, j) => {
+            const dx = c.x - cand.x;
+            const dy = c.y - cand.y;
+            const minGap = groupR[j] + groupR[gi] + PAD;
+            return dx * dx + dy * dy >= minGap * minGap;
+          });
+
+          if (!ok && ++attempt === tries) {
+            attempt = 0;
+            extended = Math.max(groupR[gi], extended - 100);
+          }
+
+          if (ok) centres[gi] = cand;
+        }
+      }
+
+      data.nodes.forEach(n => {
+        const gi = groupMap.get(n.id);
+        const c = centres[gi];
+        const θ = rng() * 2 * Math.PI;
+        const r = rng() * Math.max(groupR[gi] - 40, 20);
+        n.x = c.x + r * Math.cos(θ);
+        n.y = c.y + r * Math.sin(θ);
+      });
+
       const zoom = setupZoom(svg, g, width, height);
       zoomRef.current = zoom;
 
-      // Add a single universal arrow marker
-      const defs = svg.append("defs");
-      defs.append("marker")
-        .attr("id", "arrow")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 1)
-        .attr("refY", 0)
-        .attr("markerWidth", 30)
-        .attr("markerHeight", 30)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#808080");
-
-      // ➊ define linkForce with initial strength = 1
       const linkForce = d3.forceLink(data.links)
         .id(d => d.id)
         .distance(400)
@@ -440,7 +599,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         });
 
       // Create links
-      const linkGroup = g.append('g');
+      const linkGroup = world.append('g');
 
       data.links.forEach(ld => {
         // Full‐length link
@@ -460,7 +619,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       });
 
       // Create nodes
-      const node = g.append('g')
+      const node = world.append('g')
         .selectAll('.node')
         .data(data.nodes)
         .enter()
@@ -515,11 +674,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .on('mouseover', (event) => {
             let html = `<h4>ID: ${d.id}</h4>`;
             html += `<p><strong>Major:</strong> ${d.cu_major}</p>`;
-            // html += `<p><strong>School:</strong> ${d.school}</p>`;
-            // html += `<p><strong>Year:</strong> ${d.year}</p>`;
-            // html += `<p><strong>Language(s):</strong> ${d.language}</p>`;
-            // html += `<p><strong>CU Friends:</strong> ${d.cu_friends}</p>`;
-            // html += `<p><strong>Group:</strong> ${d.group}</p>`;
 
             tooltip
               .html(html)
@@ -541,7 +695,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
               });
           });
 
-        // Create node shapes
+        // Create node shapes (large-group accents first so wedges / face sit above)
+        appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
+
         if (nodePathInfo) {
           // Multiple segment node
           const items = nodePathInfo.items;
@@ -555,7 +711,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
             nodeGroup.append('path')
               .attr('d', d3.arc()
                 .innerRadius(0)
-                .outerRadius(30)
+                .outerRadius(NODE_RADIUS)
                 .startAngle(startAngle)
                 .endAngle(endAngle))
               .attr('fill', () => colorMap[item] || "#9e9e9e");
@@ -563,7 +719,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         } else {
           // Single color node
           nodeGroup.append('circle')
-            .attr('r', 30)
+            .attr('r', NODE_RADIUS)
             .attr('fill', getNodeColor(d))
             .attr('stroke', 'none');
         }
@@ -578,8 +734,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         if (!d || !d.source || !d.target) return "M0,0L0,0";
         if (typeof d.source.x === 'undefined' || typeof d.target.x === 'undefined') return "M0,0L0,0";
 
-        const sourceRadius = 30;
-        const targetRadius = 30;
+        const sourceRadius = NODE_RADIUS;
+        const targetRadius = NODE_RADIUS;
 
 
         const dx = d.target.x - d.source.x;
@@ -599,19 +755,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         return `M${startX},${startY}L${endX},${endY}`;
       }
 
-      // Update positions during simulation
+      // Keep node centers inside the draggable inner disk
       simulation.on('tick', () => {
-        // Apply boundary constraints to fixed area
-        // node.each(d => {
-        //   const nodeRadius = 30;
-        //   const margin = nodeRadius + 5;
+        clampNodesInPlace(data.nodes);
 
-        //   // Constrain nodes to stay within the fixed area dimensions
-        //   d.x = Math.max(margin, Math.min(FIXED_AREA_WIDTH - margin, d.x));
-        //   d.y = Math.max(margin, Math.min(FIXED_AREA_HEIGHT - margin, d.y));
-        // });
-
-        // Full‐length links
         svg.selectAll('.link-full').attr('d', d => linkPath(d));
         // Arrow paths at 1/3 from source → target
         svg.selectAll('.link-arrow').attr('d', d => {
@@ -621,7 +768,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           if (dist === 0) return 'M0,0L0,0';
           const ux = dx / dist, uy = dy / dist;
           // start just outside source circle
-          const sx = d.source.x + ux * 30, sy = d.source.y + uy * 30;
+          const sx = d.source.x + ux * NODE_RADIUS, sy = d.source.y + uy * NODE_RADIUS;
           // end at 1/3 of the link
           const ex = d.source.x + dx * (1 / 3), ey = d.source.y + dy * (1 / 3);
           return `M${sx},${sy}L${ex},${ey}`;
@@ -647,9 +794,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .force('collision', d3.forceCollide().radius(80))
           .alphaDecay(0)
           .force('charge', d3.forceManyBody().strength(-1500))
-
-
           .on('tick', () => {
+            clampNodesInPlace(groupNodes);
+
             d3.select(svgRef.current)
               .selectAll('.node')
               .filter(n => groupMap.get(n.id) === myGroup)
@@ -677,7 +824,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
                 const dist = Math.hypot(dx, dy);
                 if (dist === 0) return 'M0,0L0,0';
                 const ux = dx / dist, uy = dy / dist;
-                const sx = l.source.x + ux * 30, sy = l.source.y + uy * 30;
+                const sx = l.source.x + ux * NODE_RADIUS, sy = l.source.y + uy * NODE_RADIUS;
                 const ex = l.source.x + dx * (1 / 3), ey = l.source.y + dy * (1 / 3);
                 return `M${sx},${sy}L${ex},${ey}`;
               });
@@ -685,13 +832,15 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
         miniSimRef.current = miniSim;
 
-        d.fx = d.x;
-        d.fy = d.y;
+        const p = clampNodeCenterToMovableDisk(d.x, d.y);
+        d.fx = p.x;
+        d.fy = p.y;
       }
 
       function dragged(event, d) {
-        d.fx = event.x;
-        d.fy = event.y;
+        const c = clampNodeCenterToMovableDisk(event.x, event.y);
+        d.fx = c.x;
+        d.fy = c.y;
       }
 
       function dragended(event, d) {
@@ -706,71 +855,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         }
       }
 
-      /* ──────────  GROUP‑AWARE RESPAWN  v2  ────────── */
-      const groupMap = buildGroups(data.nodes, data.links);
-      const groupCount = Math.max(...groupMap.values()) + 1;
-
-      /* 1️  how many nodes in each group? */
-      const groupSizes = Array.from({ length: groupCount }, () => 0);
-      data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
-
-      /* 2️  radius per group */
-      const BASE_R = 200;   // px, smallest bubble
-      const PX_PER_NODE = 25;    // px extra per √node
-      const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
-
-      /* 3️  Poisson‑disk style placement of centres */
-      const PAD = 700;
-      const tries = 30;
-      const centres = [];
-      const rng = () => Math.random();
-
-      // ── ADD THIS ──
-      for (let g = 0; g < groupCount; g++) {
-        // 1) if group is “large,” drop it into the EXTRA_RECT
-        if (groupSizes[g] > largeGroupThreshold) {
-          const margin = groupR[g] + PAD;
-          centres[g] = {
-            x: EXTRA_RECT.x + margin + rng() * (EXTRA_RECT.width - 2 * margin),
-            y: EXTRA_RECT.y + margin + rng() * (EXTRA_RECT.height - 2 * margin)
-          };
-          continue;
-        }
-
-        // 2) otherwise do the usual Poisson‑disk placement
-        let ok = false, attempt = 0, rad = groupR[g] + PAD;
-        while (!ok) {
-          const cand = {
-            x: rad + rng() * (FIXED_AREA_WIDTH - 2 * rad),
-            y: rad + rng() * (FIXED_AREA_HEIGHT - 2 * rad)
-          };
-
-          ok = centres.every((c, j) => {
-            const dx = c.x - cand.x;
-            const dy = c.y - cand.y;
-            const minGap = groupR[j] + groupR[g] + PAD;
-            return dx * dx + dy * dy >= minGap * minGap;
-          });
-
-          if (!ok && ++attempt === tries) {
-            attempt = 0;
-            rad = Math.max(groupR[g], rad - 100);
-          }
-          if (ok) centres[g] = cand;
-        }
-      }
-
-      /* 4️  scatter individual nodes inside their bubble */
-      data.nodes.forEach(n => {
-        const g = groupMap.get(n.id);
-        const c = centres[g];
-
-        const θ = rng() * 2 * Math.PI;
-        const r = rng() * (groupR[g] - 40);
-        n.x = c.x + r * Math.cos(θ);
-        n.y = c.y + r * Math.sin(θ);
-      });
-
     } catch (error) {
       console.error("Error rendering network visualization:", error);
     }
@@ -783,7 +867,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   // Lightweight recolor effect
 
   useEffect(() => {
-    if (!svgRef.current || !colorMaps) return;
+    if (!svgRef.current || !colorMaps || !data?.nodes?.length) return;
+
+    const groupMap = buildGroups(data.nodes, data.links ?? []);
+    const vals = [...groupMap.values()];
+    const groupCount = vals.length ? Math.max(...vals) + 1 : 0;
+    const groupSizes = Array.from({ length: groupCount }, () => 0);
+    data.nodes.forEach(n => { groupSizes[groupMap.get(n.id)] += 1; });
 
     const g = d3.select(svgRef.current).select('g');
 
@@ -791,8 +881,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       const nodeGroup = d3.select(this);
       const nodePathInfo = createNodePath(d);
 
-      // Always clear existing slices/circles first
-      nodeGroup.selectAll('path, circle').remove();
+      nodeGroup.selectAll('path').remove();
+      nodeGroup.selectAll('circle').remove();
+
+      appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
 
       if (nodePathInfo) {
         const items = nodePathInfo.items;
@@ -806,7 +898,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           nodeGroup.append('path')
             .attr('d', d3.arc()
               .innerRadius(0)
-              .outerRadius(30)
+              .outerRadius(NODE_RADIUS)
               .startAngle(startAngle)
               .endAngle(endAngle))
             .attr('fill', colorMap[item] || '#9e9e9e')
@@ -814,16 +906,17 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         });
       } else {
         nodeGroup.append('circle')
-          .attr('r', 30)
+          .attr('r', NODE_RADIUS)
           .attr('fill', getNodeColor(d))
           .attr('stroke', 'none')
           .attr('data-single', true);
       }
 
-      // Optional center dot
-      nodeGroup.append('circle').attr('r', 6);
+      nodeGroup.append('circle')
+        .attr('class', 'node-hub')
+        .attr('r', 6);
     });
-  }, [colorBy, colorMaps, getNodeColor, createNodePath]);
+  }, [colorBy, colorMaps, getNodeColor, createNodePath, data, largeGroupThreshold]);
 
   return (
     <div className="network-container">

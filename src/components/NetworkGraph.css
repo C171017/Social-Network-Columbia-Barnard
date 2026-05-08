@@ -113,56 +113,6 @@ path {
   }
 }
 
-.zoom-controls {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-  background: var(--card-bg);
-  border-radius: var(--radius-md);
-}
-
-.zoom-controls:hover {
-  transform: scale(1.05);
-}
-
-.zoom-button,
-.reset-view-button {
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--primary-color);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: bold;
-  background: var(--bg-light);
-  transition: all .2s;
-}
-
-.zoom-button:hover,
-.reset-view-button:hover {
-  background: var(--primary-color);
-  color: #fff;
-  transform: translateY(-2px);
-}
-
-.reset-view-button:hover {
-  transform: rotate(180deg);
-}
-
-.zoom-level {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  border-left: 1px solid var(--primary-color);
-  border-right: 1px solid var(--primary-color);
-  width: 42px;
-  margin: 0 auto;
-}
-
 .network-graph::after {
   content: "Drag to move view";
   position: absolute;
@@ -196,7 +146,8 @@ path {
   opacity: .1 !important;
 }
 
-.node.highlighted circle,
+.node.highlight circle,
+.node.highlight path,
 .link-full.highlight,
 .link-arrow.highlight {
   opacity: 1 !important;
@@ -222,10 +173,24 @@ path {
   width: 100%;
 }
 
-/* give the matched node a thick glowing outline */
-.search-match circle {
+/* give the matched node a thick glowing outline (avoid cluster accent rings + hub glyph) */
+.search-match circle:not(.large-group-accent-ring):not(.large-group-accent-ring-glow):not(.node-hub) {
   stroke: gold;
   stroke-width: 6px;
   filter: drop-shadow(0 0 8px gold);
+}
+
+.search-match circle.node-hub {
+  stroke: rgba(51, 65, 85, 0.5);
+  stroke-width: 1px;
+}
+
+.large-group-accent-ring-glow,
+.large-group-accent-ring {
+  pointer-events: none;
+}
+
+.large-group-accent-ring {
+  paint-order: stroke fill;
 }
 
