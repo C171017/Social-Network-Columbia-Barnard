@@ -132,7 +132,10 @@ path {
     bottom: 10px;
   }
   .controls-legend-container > * {
-    width: 50%;            /* split 50/50 */
+    /* Use flex sizing so the flex-gap is accounted for (avoid overflow from 50% widths). */
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
@@ -166,23 +169,14 @@ path {
   align-items: stretch;      /* children will stretch to container width */
   gap: var(--spacing-md);
   z-index: 100;
+  box-sizing: border-box;
 }
 
 /* make each direct child (your ControlPanel wrapper & your .legend) fill that container */
 .controls-legend-container > * {
   width: 100%;
-}
-
-/* give the matched node a thick glowing outline (avoid cluster accent rings + hub glyph) */
-.search-match circle:not(.large-group-accent-ring):not(.large-group-accent-ring-glow):not(.node-hub) {
-  stroke: gold;
-  stroke-width: 6px;
-  filter: drop-shadow(0 0 8px gold);
-}
-
-.search-match circle.node-hub {
-  stroke: rgba(51, 65, 85, 0.5);
-  stroke-width: 1px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .large-group-accent-ring-glow,

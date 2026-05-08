@@ -148,11 +148,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   const zoomCleanupRef = useRef(null);
   const [colorMaps, setColorMaps] = useState({});
 
-
-  // at top of component
-  const [searchTerm, setSearchTerm] = useState('');
-  const searchInputRef = useRef(null);
-
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
 
@@ -187,63 +182,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     setColorMaps(maps);
   }, [data]);
 
-
-  ///////////////////////////////////////////////////////////////
-  ///////////////////////////////////////////////////////////////
-
-  //6.快捷键聚焦搜索框useEffect
-
-  // focus the search box whenever user presses “f”
-  useEffect(() => {
-    const onKeyDown = e => {
-      if (e.key === 'f' && document.activeElement !== searchInputRef.current) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  ////////////////////////////////////////////////////////////
-  ////////////////////////////////////////////////////////////
-
-  // 7.	handleSearch 搜索处理函数
-
-  const handleSearch = () => {
-    const id = searchTerm.trim();
-    if (!id) return;
-  
-    // ① clear *all* old matches right away
-    d3.select(svgRef.current)
-      .selectAll('.search-match')
-      .classed('search-match', false);
-  
-    // ② find your node
-    const nodeG = d3.select(svgRef.current)
-      .selectAll('.node')
-      .filter(d => String(d.id) === id);
-  
-    if (nodeG.empty()) {
-      return alert(`No node with id="${id}"`);
-    }
-  
-    // ③ highlight just that one
-    nodeG.classed('search-match', true);
-  
-    // ④ pan/zoom to center it
-    const { x: cx, y: cy, } = nodeG.datum();
-    const { k } = d3.zoomTransform(svgRef.current);
-    const w = svgRef.current.clientWidth;
-    const h = window.innerHeight * 0.7;
-    const newT = d3.zoomIdentity
-      .translate(w / 2 - cx * k, h / 2 - cy * k)
-      .scale(k);
-  
-    d3.select(svgRef.current)
-      .transition().duration(500)
-      .call(zoomRef.current.transform, newT);
-  };
 
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
@@ -1033,18 +971,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   return (
     <div className="network-container">
       <div className="visualization-area">
-        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 100 }}>
-          <input
-            ref={searchInputRef}
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-            placeholder="Search ID (press f)"
-            style={{ padding: '4px 8px', fontSize: '0.9rem' }}
-          />
-          <button onClick={handleSearch}>Go</button>
-        </div>
-
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
 
