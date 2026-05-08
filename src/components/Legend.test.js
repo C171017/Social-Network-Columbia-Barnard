@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import Legend from './Legend';
+import Legend from '../features/legend/Legend';
 
 const data = {
   nodes: [{ id: '1', year: '2024' }],

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import ControlPanel from './ControlPanel';
+import ControlPanel from '../features/controls/ControlPanel';
 
 test('clears colorBy when there are no nodes so the select value stays valid', async () => {
   function Wrapper() {

@@ -1,21 +1,11 @@
 import React, { useEffect, useMemo } from 'react';
 import './ControlPanel.css';
-
-const toLabel = k =>
-  k.replace(/_/g,' ')
-   .replace(/\b\w/g,c=>c.toUpperCase());
+import { getColorableFieldKeys, toLabel } from '../../shared/utils/fieldMetadata';
 
 const ControlPanel = ({ colorBy, setColorBy, nodes = [], darkSurface = false }) => {
   const colorOptions = useMemo(() => {
     if (!nodes.length) return [];
-    const allKeys = Object.keys(nodes[0]);
-    const extraKeys = allKeys.filter(k =>
-      k !== 'id' &&
-      k !== 'cu_major' &&
-      !k.startsWith('zip_') &&
-      !['x','y','vx','vy','fx','fy'].includes(k)
-    );
-    return extraKeys.map(k => ({ value: k, label: toLabel(k) }));
+    return getColorableFieldKeys(nodes[0]).map((k) => ({ value: k, label: toLabel(k) }));
   }, [nodes]);
 
   useEffect(() => {
@@ -23,7 +13,7 @@ const ControlPanel = ({ colorBy, setColorBy, nodes = [], darkSurface = false }) 
       if (colorBy !== '') setColorBy('');
       return;
     }
-    if (colorBy === '' || !colorOptions.some(o => o.value === colorBy)) {
+    if (colorBy === '' || !colorOptions.some((o) => o.value === colorBy)) {
       setColorBy(colorOptions[0].value);
     }
   }, [colorOptions, colorBy, setColorBy]);
@@ -32,18 +22,16 @@ const ControlPanel = ({ colorBy, setColorBy, nodes = [], darkSurface = false }) 
     <div className={`control-panel${darkSurface ? ' dark-surface' : ''}`}>
       <div className="filter-section">
         <label htmlFor="color-select"></label>
-        <select
-          id="color-select"
-          value={colorBy}
-          onChange={(e) => setColorBy(e.target.value)}
-        >
+        <select id="color-select" value={colorBy} onChange={(e) => setColorBy(e.target.value)}>
           {!colorOptions.length && (
             <option value="" disabled>
               No graph data
             </option>
           )}
-          {colorOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+          {colorOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
       </div>

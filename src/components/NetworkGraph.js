@@ -4,9 +4,25 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import ControlPanel from './ControlPanel';
-import Legend from './Legend';
+import ControlPanel from '../features/controls/ControlPanel';
+import Legend from '../features/legend/Legend';
 import './NetworkGraph.css';
+import {
+  buildColorMaps,
+  createNodePathInfo,
+  getNodeColor as getNodeColorFromMaps
+} from '../features/network-graph/transforms/colors';
+import {
+  buildGroups as buildGroupsFromData,
+  isLargeGroupNode as isLargeGroupNodeFromData
+} from '../features/network-graph/transforms/groups';
+import {
+  clampNodeCenterToMovableDisk as clampNodeToDisk,
+  clampNodesInPlace as clampNodesToDisk,
+  linkPath as computeLinkPath,
+  arrowPathAtFraction
+} from '../features/network-graph/transforms/geometry';
+import { renderClusterContents as renderClusterContentsFromModule } from '../features/network-graph/render/clusters';
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 
@@ -17,38 +33,9 @@ const NODE_RADIUS = 30;
 /////////////////////////////////////////////
 //buildGroups 函数（构建群组）
 
-function buildGroups(nodes, links) {
-  const adj = new Map(nodes.map(n => [n.id, []]));
-  links.forEach(l => {
-    adj.get(l.source.id ?? l.source).push(l.target.id ?? l.target);
-    adj.get(l.target.id ?? l.target).push(l.source.id ?? l.source);
-  });
-
-  let current = 0;
-  const groupMap = new Map();          // node-id ➜ group #
-  nodes.forEach(n => {
-    if (groupMap.has(n.id)) return;
-    const stack = [n.id];
-    while (stack.length) {
-      const id = stack.pop();
-      if (groupMap.has(id)) continue;
-      groupMap.set(id, current);
-      adj.get(id).forEach(nei => stack.push(nei));
-    }
-    current += 1;
-  });
-  return groupMap;                     // use groupMap.get(node.id)
-}
-
-function isLargeGroupNode(d, groupMap, groupSizes, largeGroupThreshold) {
-  const gi = groupMap.get(d.id);
-  if (gi == null) return false;
-  return groupSizes[gi] > largeGroupThreshold;
-}
-
 // Large-group nodes: gradient ring just outside colored disk.
 function appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold) {
-  if (!isLargeGroupNode(d, groupMap, groupSizes, largeGroupThreshold)) return;
+  if (!isLargeGroupNodeFromData(d, groupMap, groupSizes, largeGroupThreshold)) return;
   const EDGE_OUTPAD = 2;
   const NODE_RING_STROKE = 3.5;
   const rStrokeCenter = NODE_RADIUS + EDGE_OUTPAD + NODE_RING_STROKE / 2;
@@ -68,6 +55,44 @@ function appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGro
     .attr('stroke', 'url(#large-node-border-grad)')
     .attr('stroke-width', NODE_RING_STROKE)
     .attr('stroke-opacity', 0.88);
+}
+
+function renderNodeVisual(nodeGroup, d, nodePathInfo, options) {
+  const {
+    groupMap,
+    groupSizes,
+    largeGroupThreshold,
+    colorMaps,
+    colorBy,
+    getNodeColor,
+    includeHub = false,
+    includeDataAttrs = false
+  } = options;
+
+  appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
+
+  if (nodePathInfo) {
+    const items = nodePathInfo.items;
+    const colorMap = colorMaps[colorBy];
+    const anglePerItem = (2 * Math.PI) / items.length;
+
+    items.forEach((item, i) => {
+      const startAngle = i * anglePerItem;
+      const endAngle = (i + 1) * anglePerItem;
+      const path = nodeGroup
+        .append('path')
+        .attr('d', d3.arc().innerRadius(0).outerRadius(NODE_RADIUS).startAngle(startAngle).endAngle(endAngle))
+        .attr('fill', colorMap[item] || '#9e9e9e');
+      if (includeDataAttrs) path.attr('data-slice', item);
+    });
+  } else {
+    const circle = nodeGroup.append('circle').attr('r', NODE_RADIUS).attr('fill', getNodeColor(d)).attr('stroke', 'none');
+    if (includeDataAttrs) circle.attr('data-single', true);
+  }
+
+  if (includeHub) {
+    nodeGroup.append('circle').attr('class', 'node-hub').attr('r', 6);
+  }
 }
 
 //////////////////////////////////////////////////////
@@ -92,52 +117,8 @@ const INITIAL_ZOOM_MULTIPLIER_MOBILE = 1.0;
 // individual nodes anyway.
 const ZOOM_CLUSTER_THRESHOLD = 0.1;
 const CLUSTER_GROUP_MIN_NODES = 20;
-const CLUSTER_BASE_R = 80;
-const CLUSTER_PX_PER_SQRT_NODE = 20;
 const CLUSTER_EXIT_HYSTERESIS = 0.02;
 const CLUSTER_SWITCH_DEBOUNCE_MS = 140;
-
-// Cheap deterministic PRNG keyed by an integer seed (mulberry32-style). Using
-// a deterministic jitter keeps each cluster's organic shape stable across
-// re-renders / recolors.
-function seededRand(seed) {
-  let s = (seed >>> 0) || 1;
-  return () => {
-    s = (s + 0x6D2B79F5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// (Re)populate a cluster <g> with jittered colored dots whose sizes are
-// proportional to per-color node counts. The cluster filter (#cluster-cloud)
-// blurs them into a single organic blob with soft color fusion at overlaps.
-function renderClusterContents(clusterSel, gi, colorCounts, totalSize) {
-  clusterSel.selectAll('circle').remove();
-  const clusterR = CLUSTER_BASE_R + CLUSTER_PX_PER_SQRT_NODE * Math.sqrt(Math.max(1, totalSize));
-  const entries = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]);
-  const rand = seededRand(gi * 1000003 + 17);
-
-  entries.forEach(([color, count]) => {
-    const dotR = Math.max(24, Math.sqrt(count) * 22);
-    const dotsPerColor = count >= 8 ? 3 : (count >= 3 ? 2 : 1);
-    for (let i = 0; i < dotsPerColor; i++) {
-      const theta = rand() * 2 * Math.PI;
-      const radial = Math.sqrt(rand()) * 0.55 * clusterR;
-      const cx = Math.cos(theta) * radial;
-      const cy = Math.sin(theta) * radial;
-      const subScale = i === 0 ? 1 : 0.65 + rand() * 0.2;
-      clusterSel.append('circle')
-        .attr('cx', cx)
-        .attr('cy', cy)
-        .attr('r', dotR * subScale)
-        .attr('fill', color)
-        .attr('fill-opacity', 0.85);
-    }
-  });
-}
 
 const MOBILE_BREAKPOINT_PX = 768;
 function isMobileViewport() {
@@ -157,52 +138,8 @@ const CANVAS_BACKDROP_RADIUS = CIRCLE_RADIUS + CANVAS_EDGE_FEATHER_HALF;
 const VISUAL_SCENE_EXTENT = CIRCLE_DIAMETER + 2 * CANVAS_EDGE_FEATHER_HALF;
 const CANVAS_WHITE_INSET = 1300;
 const CANVAS_WHITE_OUTER_RADIUS = Math.max(0, CIRCLE_RADIUS - CANVAS_EDGE_FEATHER_HALF - CANVAS_WHITE_INSET);
-const NODE_MOVABLE_DISK_PAD = NODE_RADIUS + 20;
-const NODE_MOVE_MAX_RADIUS_FROM_CENTER = Math.max(
-  600,
-  CANVAS_WHITE_OUTER_RADIUS - NODE_MOVABLE_DISK_PAD
-);
 
-function clampNodeCenterToMovableDisk(x, y) {
-  const dx = x - CIRCLE_CX;
-  const dy = y - CIRCLE_CY;
-  const dist = Math.hypot(dx, dy);
-  if (!Number.isFinite(dist) || dist === 0 || dist <= NODE_MOVE_MAX_RADIUS_FROM_CENTER) {
-    return { x, y };
-  }
-  const s = NODE_MOVE_MAX_RADIUS_FROM_CENTER / dist;
-  return { x: CIRCLE_CX + dx * s, y: CIRCLE_CY + dy * s };
-}
-
-function clampNodesInPlace(nodes) {
-  nodes.forEach((n) => {
-    const c = clampNodeCenterToMovableDisk(n.x, n.y);
-    n.x = c.x;
-    n.y = c.y;
-  });
-}
-
-// Standard color palette for dynamic generation
-const COLOR_PALETTE = [
-  '#E6194B', // 1. Vivid Red
-  '#3CB44B', // 2. Lime Green
-  '#4363D8', // 3. Strong Blue
-  '#F58231', // 4. Bright Orange
-  '#911EB4', // 5. Bold Purple
-
-  '#46F0F0', // 6. Cyan
-  '#F032E6', // 7. Magenta
-  '#BCF60C', // 8. Neon Lime
-  '#FABEBE', // 9. Soft Pink
-  '#008080', // 10. Teal
-  '#E6BEFF', // 11. Lavender
-  '#9A6324', // 12. Brown
-  '#AAFFC3', // 13. Mint
-  '#FFD8B1', // 14. Peach
-  '#800000', // 15. Maroon
-  '#000075', // 16. Navy
-  '#808000'  // 17. Olive
-];
+// clamping and color-map helpers are extracted in feature modules.
 
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
@@ -233,29 +170,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   useEffect(() => {
     const nodes = data.nodes;
     if (!nodes?.length) {
-      setColorMaps({});
+        setColorMaps({});
       return;
     }
-    const uniq = arr => [...new Set(arr)].filter(Boolean);
-
-    const maps = {};
-    Object.keys(nodes[0])
-      .filter(k => k !== 'id' && !k.startsWith('zip_'))
-      .forEach((key) => {
-        const vals = uniq(
-          nodes.flatMap(n =>
-            String(n[key] || '').split(',').map(s => s.trim())
-          )
-        );
-        if (vals.length) {
-          maps[key] = {};
-          vals.forEach((v, i) => {
-            maps[key][v] = COLOR_PALETTE[i % COLOR_PALETTE.length];
-          });
-        }
-      });
-
-    setColorMaps(maps);
+    setColorMaps(buildColorMaps(nodes));
   }, [data]);
 
 
@@ -265,19 +183,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 // 8.	getNodeColor & createNodePath (节点着色 & 多值拆分)
 
   const getNodeColor = useCallback((d) => {
-    if (!colorMaps || !d || !colorBy) return '#9e9e9e';
-
-    const field = d[colorBy];
-    if (field == null || field === '') return '#9e9e9e';
-    const firstVal = String(field).split(',')[0].trim();
-
-    if (colorMaps[colorBy] && colorMaps[colorBy][firstVal]) {
-      return colorMaps[colorBy][firstVal];
-    }
-
-    if (colorBy === 'email-sequence') return '#5F6368';
-
-    return '#9e9e9e';
+    return getNodeColorFromMaps(d, colorBy, colorMaps);
   }, [colorMaps, colorBy]);
 
   /**
@@ -285,18 +191,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
    * Returns { items, colorMap } or null if single‑valued.
    */
   const createNodePath = useCallback((d) => {
-    if (!d || !colorMaps || !colorBy) return null;
-
-    const field = d[colorBy];
-    if (typeof field !== 'string' || !field.includes(',')) return null;
-
-    const items = field.split(',').map(s => s.trim()).filter(Boolean);
-    if (items.length <= 1) return null;
-
-    return {
-      items,
-      colorMap: colorMaps[colorBy] || {}
-    };
+    return createNodePathInfo(d, colorBy, colorMaps);
   }, [colorMaps, colorBy]);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -702,7 +597,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('class', 'network-world');
 
       /* ──────────  GROUP‑AWARE LAYOUT (inside disk) ────────── */
-      const groupMap = buildGroups(data.nodes, data.links);
+      const groupMap = buildGroupsFromData(data.nodes, data.links);
       const groupCount = Math.max(...groupMap.values()) + 1;
 
       const groupSizes = Array.from({ length: groupCount }, () => 0);
@@ -873,7 +768,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       // Initial paint using current colorBy.
       clusterGroupRecords.forEach(({ gi, sel, size }) => {
-        renderClusterContents(sel, gi, computeGroupColorCounts(gi), size);
+        renderClusterContentsFromModule(sel, gi, computeGroupColorCounts(gi), size);
       });
 
       const fullLinksByGroup = Array.from({ length: groupCount }, () => []);
@@ -1304,65 +1199,17 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
               });
           });
 
-        // Create node shapes (large-group accents first so wedges / face sit above)
-        appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
-
-        if (nodePathInfo) {
-          // Multiple segment node
-          const items = nodePathInfo.items;
-          const colorMap = colorMaps[colorBy];
-          const anglePerItem = (2 * Math.PI) / items.length;
-
-          items.forEach((item, i) => {
-            const startAngle = i * anglePerItem;
-            const endAngle = (i + 1) * anglePerItem;
-
-            nodeGroup.append('path')
-              .attr('d', d3.arc()
-                .innerRadius(0)
-                .outerRadius(NODE_RADIUS)
-                .startAngle(startAngle)
-                .endAngle(endAngle))
-              .attr('fill', () => colorMap[item] || "#9e9e9e");
-          });
-        } else {
-          // Single color node
-          nodeGroup.append('circle')
-            .attr('r', NODE_RADIUS)
-            .attr('fill', getNodeColor(d))
-            .attr('stroke', 'none');
-        }
-
-
+        renderNodeVisual(nodeGroup, d, nodePathInfo, {
+          groupMap,
+          groupSizes,
+          largeGroupThreshold,
+          colorMaps,
+          colorBy,
+          getNodeColor
+        });
       });
 
 
-
-      // Path calculation for links
-      function linkPath(d) {
-        if (!d || !d.source || !d.target) return "M0,0L0,0";
-        if (typeof d.source.x === 'undefined' || typeof d.target.x === 'undefined') return "M0,0L0,0";
-
-        const sourceRadius = NODE_RADIUS;
-        const targetRadius = NODE_RADIUS;
-
-
-        const dx = d.target.x - d.source.x;
-        const dy = d.target.y - d.source.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist === 0) return "M0,0L0,0";
-
-        const unitX = dx / dist;
-        const unitY = dy / dist;
-
-        const startX = d.source.x + (unitX * sourceRadius);
-        const startY = d.source.y + (unitY * sourceRadius);
-        const endX = d.target.x - (unitX * targetRadius);
-        const endY = d.target.y - (unitY * targetRadius);
-
-        return `M${startX},${startY}L${endX},${endY}`;
-      }
 
       // Keep node centers inside the draggable inner disk
       simulation.on('tick', () => {
@@ -1372,26 +1219,15 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           return;
         }
 
-        clampNodesInPlace(data.nodes);
+        clampNodesToDisk(data.nodes);
 
         fullLinks
           .filter(d => visibleGroups.has(d.__groupIndex))
-          .attr('d', d => linkPath(d));
+          .attr('d', d => computeLinkPath(d));
         // Arrow paths at 1/3 from source → target
         arrowLinks
           .filter(d => visibleGroups.has(d.__groupIndex))
-          .attr('d', d => {
-            const dx = d.target.x - d.source.x;
-            const dy = d.target.y - d.source.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist === 0) return 'M0,0L0,0';
-            const ux = dx / dist, uy = dy / dist;
-            // start just outside source circle
-            const sx = d.source.x + ux * NODE_RADIUS, sy = d.source.y + uy * NODE_RADIUS;
-            // end at 1/3 of the link
-            const ex = d.source.x + dx * (1 / 3), ey = d.source.y + dy * (1 / 3);
-            return `M${sx},${sy}L${ex},${ey}`;
-          });
+          .attr('d', (d) => arrowPathAtFraction(d, 1 / 3));
 
         // Update node positions
         node
@@ -1421,7 +1257,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .alphaDecay(0)
           .force('charge', d3.forceManyBody().strength(-1500))
           .on('tick', () => {
-            clampNodesInPlace(groupNodes);
+            clampNodesToDisk(groupNodes);
 
             d3.select(svgRef.current)
               .selectAll('.node')
@@ -1435,7 +1271,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
                 const t = groupMap.get(l.target.id ?? l.target);
                 return s === myGroup && t === myGroup;
               })
-              .attr('d', l => linkPath(l));
+              .attr('d', l => computeLinkPath(l));
 
             d3.select(svgRef.current)
               .selectAll('.link-arrow')
@@ -1444,27 +1280,18 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
                 const t = groupMap.get(l.target.id ?? l.target);
                 return s === myGroup && t === myGroup;
               })
-              .attr('d', l => {
-                const dx = l.target.x - l.source.x;
-                const dy = l.target.y - l.source.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist === 0) return 'M0,0L0,0';
-                const ux = dx / dist, uy = dy / dist;
-                const sx = l.source.x + ux * NODE_RADIUS, sy = l.source.y + uy * NODE_RADIUS;
-                const ex = l.source.x + dx * (1 / 3), ey = l.source.y + dy * (1 / 3);
-                return `M${sx},${sy}L${ex},${ey}`;
-              });
+              .attr('d', (l) => arrowPathAtFraction(l, 1 / 3));
           });
 
         miniSimRef.current = miniSim;
 
-        const p = clampNodeCenterToMovableDisk(d.x, d.y);
+        const p = clampNodeToDisk(d.x, d.y);
         d.fx = p.x;
         d.fy = p.y;
       }
 
       function dragged(event, d) {
-        const c = clampNodeCenterToMovableDisk(event.x, event.y);
+        const c = clampNodeToDisk(event.x, event.y);
         d.fx = c.x;
         d.fy = c.y;
       }
@@ -1506,7 +1333,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   useEffect(() => {
     if (!svgRef.current || !colorMaps || !data?.nodes?.length) return;
 
-    const groupMap = buildGroups(data.nodes, data.links ?? []);
+    const groupMap = buildGroupsFromData(data.nodes, data.links ?? []);
     const vals = [...groupMap.values()];
     const groupCount = vals.length ? Math.max(...vals) + 1 : 0;
     const groupSizes = Array.from({ length: groupCount }, () => 0);
@@ -1521,37 +1348,16 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       nodeGroup.selectAll('path').remove();
       nodeGroup.selectAll('circle').remove();
 
-      appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
-
-      if (nodePathInfo) {
-        const items = nodePathInfo.items;
-        const colorMap = colorMaps[colorBy];
-        const anglePerItem = (2 * Math.PI) / items.length;
-
-        items.forEach((item, i) => {
-          const startAngle = i * anglePerItem;
-          const endAngle = (i + 1) * anglePerItem;
-
-          nodeGroup.append('path')
-            .attr('d', d3.arc()
-              .innerRadius(0)
-              .outerRadius(NODE_RADIUS)
-              .startAngle(startAngle)
-              .endAngle(endAngle))
-            .attr('fill', colorMap[item] || '#9e9e9e')
-            .attr('data-slice', item);
-        });
-      } else {
-        nodeGroup.append('circle')
-          .attr('r', NODE_RADIUS)
-          .attr('fill', getNodeColor(d))
-          .attr('stroke', 'none')
-          .attr('data-single', true);
-      }
-
-      nodeGroup.append('circle')
-        .attr('class', 'node-hub')
-        .attr('r', 6);
+      renderNodeVisual(nodeGroup, d, nodePathInfo, {
+        groupMap,
+        groupSizes,
+        largeGroupThreshold,
+        colorMaps,
+        colorBy,
+        getNodeColor,
+        includeHub: true,
+        includeDataAttrs: true
+      });
     });
 
     // Rebuild cluster contents so the cloud blob's color mix reflects the
@@ -1570,7 +1376,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         colorCounts.set(c, (colorCounts.get(c) || 0) + 1);
       });
 
-      renderClusterContents(clusterSel, gi, colorCounts, groupSizes[gi]);
+      renderClusterContentsFromModule(clusterSel, gi, colorCounts, groupSizes[gi]);
     });
   }, [colorBy, colorMaps, getNodeColor, createNodePath, data, largeGroupThreshold]);
 
