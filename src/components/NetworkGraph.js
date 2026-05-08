@@ -12,10 +12,7 @@ import {
   createNodePathInfo,
   getNodeColor as getNodeColorFromMaps
 } from '../features/network-graph/transforms/colors';
-import {
-  buildGroups as buildGroupsFromData,
-  isLargeGroupNode as isLargeGroupNodeFromData
-} from '../features/network-graph/transforms/groups';
+import { buildGroups as buildGroupsFromData } from '../features/network-graph/transforms/groups';
 import {
   clampNodeCenterToMovableDisk as clampNodeToDisk,
   clampNodesInPlace as clampNodesToDisk,
@@ -33,35 +30,8 @@ const NODE_RADIUS = 30;
 /////////////////////////////////////////////
 //buildGroups 函数（构建群组）
 
-// Large-group nodes: gradient ring just outside colored disk.
-function appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold) {
-  if (!isLargeGroupNodeFromData(d, groupMap, groupSizes, largeGroupThreshold)) return;
-  const EDGE_OUTPAD = 2;
-  const NODE_RING_STROKE = 3.5;
-  const rStrokeCenter = NODE_RADIUS + EDGE_OUTPAD + NODE_RING_STROKE / 2;
-  const rGlow = NODE_RADIUS + 5;
-
-  nodeGroup.append('circle')
-    .attr('class', 'large-group-accent-ring-glow')
-    .attr('pointer-events', 'none')
-    .attr('r', rGlow)
-    .attr('fill', 'url(#large-node-ring-fill)');
-
-  nodeGroup.append('circle')
-    .attr('class', 'large-group-accent-ring')
-    .attr('pointer-events', 'none')
-    .attr('r', rStrokeCenter)
-    .attr('fill', 'none')
-    .attr('stroke', 'url(#large-node-border-grad)')
-    .attr('stroke-width', NODE_RING_STROKE)
-    .attr('stroke-opacity', 0.88);
-}
-
 function renderNodeVisual(nodeGroup, d, nodePathInfo, options) {
   const {
-    groupMap,
-    groupSizes,
-    largeGroupThreshold,
     colorMaps,
     colorBy,
     getNodeColor,
@@ -69,10 +39,6 @@ function renderNodeVisual(nodeGroup, d, nodePathInfo, options) {
     includeDataAttrs = false,
     simplified = false
   } = options;
-
-  if (!simplified) {
-    appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
-  }
 
   if (!simplified && nodePathInfo) {
     const items = nodePathInfo.items;
@@ -118,11 +84,13 @@ const INITIAL_ZOOM_MULTIPLIER_MOBILE = 1.0;
 // into a single organic "cloud" shape and smaller groups disappear entirely.
 // This avoids per-node DOM/physics work when the user can't visually distinguish
 // individual nodes anyway.
-const ZOOM_CLUSTER_THRESHOLD_DESKTOP = 0.1;
+const ZOOM_CLUSTER_THRESHOLD_DESKTOP = 0.08;
 const ZOOM_CLUSTER_THRESHOLD_MOBILE = 0.08;
-const CLUSTER_GROUP_MIN_NODES = 20;
+const CLUSTER_GROUP_MIN_NODES = 8;
 const CLUSTER_EXIT_HYSTERESIS = 0.02;
 const MOBILE_INTERACTION_IDLE_MS = 140;
+/** Duration of in-group expansion sim after a plain node click (no drag). */
+const GROUP_SIM_EXPAND_MS = 100;
 const CLUSTER_EXCLUDED_COLORS = new Set(['#9e9e9e', '#999999', '#808080', 'gray', 'grey']);
 
 const MOBILE_BREAKPOINT_PX = 768;
@@ -142,7 +110,8 @@ function shouldExcludeClusterColor(color) {
 
 // Canvas: circle clip, soft rim; white↔grey onset and drag clamp share CANVAS_WHITE_INSET / OUTER_RADIUS.
 const LEGACY_SQUARE_SIDE = 25000;
-const CIRCLE_DIAMETER = LEGACY_SQUARE_SIDE * 1.5;
+const CANVAS_SCALE = 0.85;
+const CIRCLE_DIAMETER = LEGACY_SQUARE_SIDE * 1.5 * CANVAS_SCALE;
 const CIRCLE_RADIUS = CIRCLE_DIAMETER / 2;
 const CIRCLE_CX = CIRCLE_RADIUS;
 const CIRCLE_CY = CIRCLE_RADIUS;
@@ -160,7 +129,7 @@ const CANVAS_WHITE_OUTER_RADIUS = Math.max(0, CIRCLE_RADIUS - CANVAS_EDGE_FEATHE
 
 //	4.	组件定义和 State 初始化
 
-const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
+const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const svgRef = useRef();
   const controlsRef = useRef(null);
   const zoomRef = useRef(null);
@@ -401,8 +370,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     };
   }, []);
 
-  const miniSimRef = useRef(null);
-
   // Main visualization effect
   useEffect(() => {
     if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return undefined;
@@ -414,6 +381,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       zoomCleanupRef.current();
       zoomCleanupRef.current = null;
     }
+    // Declared outside `try` so effect cleanup can remove listeners / stop simulators safely.
+    let handleGlobalDragRelease = null;
+    let simulation = null;
+    let groupMiniSimInstance = null;
+    let groupExpandTimerId = null;
+    /** Assigned inside try once helpers exist; cleanup always calls a safe no-op if render failed. */
+    let teardownGroupMiniSimOnly = () => {};
     try {
       const containerWidth = svgRef.current.parentElement.clientWidth || 800;
       const containerHeight = window.innerHeight * 0.7 || 600;
@@ -525,59 +499,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#808080');
 
-      const borderGrad = defs.append('linearGradient')
-        .attr('id', 'large-node-border-grad')
-        .attr('gradientUnits', 'objectBoundingBox')
-        .attr('x1', '0%')
-        .attr('y1', '25%')
-        .attr('x2', '100%')
-        .attr('y2', '100%');
-
-      borderGrad.append('stop')
-        .attr('offset', '0%')
-        .attr('stop-color', '#94a3b8')
-        .attr('stop-opacity', 0.38);
-      borderGrad.append('stop')
-        .attr('offset', '22%')
-        .attr('stop-color', '#818cf8')
-        .attr('stop-opacity', 0.28);
-      borderGrad.append('stop')
-        .attr('offset', '48%')
-        .attr('stop-color', '#e0e7ff')
-        .attr('stop-opacity', 0.58);
-      borderGrad.append('stop')
-        .attr('offset', '72%')
-        .attr('stop-color', '#6366f1')
-        .attr('stop-opacity', 0.68);
-      borderGrad.append('stop')
-        .attr('offset', '100%')
-        .attr('stop-color', '#4338ca')
-        .attr('stop-opacity', 0.4);
-
-      const ringFill = defs.append('radialGradient')
-        .attr('id', 'large-node-ring-fill')
-        .attr('gradientUnits', 'objectBoundingBox')
-        .attr('cx', '50%')
-        .attr('cy', '50%')
-        .attr('r', '50%');
-
-      ringFill.append('stop')
-        .attr('offset', '68%')
-        .attr('stop-color', '#6366f1')
-        .attr('stop-opacity', 0);
-      ringFill.append('stop')
-        .attr('offset', '84%')
-        .attr('stop-color', '#a5b4fc')
-        .attr('stop-opacity', 0.12);
-      ringFill.append('stop')
-        .attr('offset', '93%')
-        .attr('stop-color', '#cbd5e1')
-        .attr('stop-opacity', 0.16);
-      ringFill.append('stop')
-        .attr('offset', '100%')
-        .attr('stop-color', '#6366f1')
-        .attr('stop-opacity', 0);
-
       if (!isMobile) {
         // Keep cluster cloud blur on desktop only; skip on mobile.
         const clusterFilter = defs.append('filter')
@@ -625,8 +546,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       const groupR = groupSizes.map(s => BASE_R + PX_PER_NODE * Math.sqrt(s));
 
       const PAD = 700;
-      const tries = 30;
-      const centres = [];
+      const centres = Array.from({ length: groupCount }, () => null);
       const rng = () => Math.random();
 
       const uniformPointInDisk = (maxDistFromCentre) => {
@@ -638,39 +558,113 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         };
       };
 
-      for (let gi = 0; gi < groupCount; gi++) {
-        let ok = false;
-        let attempt = 0;
-        let extended = groupR[gi] + PAD;
+      const movableLimit = Math.max(0, CANVAS_WHITE_OUTER_RADIUS - NODE_RADIUS - 10);
+      const clampToMovableDisk = (x, y) => {
+        const dx = x - CIRCLE_CX;
+        const dy = y - CIRCLE_CY;
+        const dist = Math.hypot(dx, dy);
+        if (!Number.isFinite(dist) || dist <= movableLimit || dist === 0) return { x, y };
+        const s = movableLimit / dist;
+        return { x: CIRCLE_CX + dx * s, y: CIRCLE_CY + dy * s };
+      };
 
-        while (!ok) {
-          const maxCentreDist = Math.max(100, CIRCLE_RADIUS - extended);
-          const cand = uniformPointInDisk(maxCentreDist);
+      // Place larger groups first and choose the best candidate (maximizes
+      // clearance to both existing groups and the outer wall) to avoid clumping.
+      const groupOrder = Array.from({ length: groupCount }, (_, gi) => gi)
+        .sort((a, b) => groupR[b] - groupR[a]);
+      const candidateCount = 220;
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      groupOrder.forEach((gi, orderIndex) => {
+        const maxCenterDist = Math.max(140, movableLimit - groupR[gi] - PAD);
+        let best = null;
+        let bestScore = -Infinity;
+        const nCandidates = Math.max(36, candidateCount - orderIndex * 5);
 
-          ok = centres.every((c, j) => {
+        for (let i = 0; i < nCandidates; i++) {
+          const u = (i + 0.5) / nCandidates;
+          const theta = i * golden + rng() * 0.18;
+          const radius = Math.sqrt(u) * maxCenterDist;
+          const cand = {
+            x: CIRCLE_CX + radius * Math.cos(theta),
+            y: CIRCLE_CY + radius * Math.sin(theta)
+          };
+
+          const wallClearance = maxCenterDist - radius;
+          let overlapPenalty = 0;
+          let nearestGap = Infinity;
+          for (let j = 0; j < groupCount; j++) {
+            const c = centres[j];
+            if (!c) continue;
             const dx = c.x - cand.x;
             const dy = c.y - cand.y;
+            const dist = Math.hypot(dx, dy);
             const minGap = groupR[j] + groupR[gi] + PAD;
-            return dx * dx + dy * dy >= minGap * minGap;
-          });
+            const gap = dist - minGap;
+            nearestGap = Math.min(nearestGap, gap);
+            if (gap < 0) overlapPenalty += (-gap) * 1000;
+          }
+          if (!Number.isFinite(nearestGap)) nearestGap = maxCenterDist;
 
-          if (!ok && ++attempt === tries) {
-            attempt = 0;
-            extended = Math.max(groupR[gi], extended - 100);
+          const score = nearestGap * 2.5 + wallClearance - overlapPenalty;
+          if (score > bestScore) {
+            bestScore = score;
+            best = cand;
+          }
+        }
+
+        centres[gi] = best || uniformPointInDisk(maxCenterDist);
+      });
+
+      const nodesByGroupSeed = Array.from({ length: groupCount }, () => []);
+      data.nodes.forEach((n) => {
+        nodesByGroupSeed[groupMap.get(n.id)].push(n);
+      });
+
+      // Seed nodes with Poisson-like rejection inside each group's disk so they
+      // start dispersed instead of piled near the center.
+      for (let gi = 0; gi < groupCount; gi++) {
+        const c = centres[gi] || { x: CIRCLE_CX, y: CIRCLE_CY };
+        const groupNodes = nodesByGroupSeed[gi];
+        const seeded = [];
+        const radialLimit = Math.max(groupR[gi] - 36, 28);
+        const minSepBase = Math.min(92, Math.max(42, NODE_RADIUS * 1.7));
+
+        groupNodes.forEach((n, idx) => {
+          let placed = null;
+          for (let attempt = 0; attempt < 60; attempt++) {
+            const θ = rng() * 2 * Math.PI;
+            const r = Math.sqrt(rng()) * radialLimit;
+            const cand = {
+              x: c.x + r * Math.cos(θ),
+              y: c.y + r * Math.sin(θ)
+            };
+            const clamped = clampToMovableDisk(cand.x, cand.y);
+            const minSep = Math.max(20, minSepBase - attempt * 0.85);
+            const isFarEnough = seeded.every((p) => {
+              const dx = p.x - clamped.x;
+              const dy = p.y - clamped.y;
+              return (dx * dx + dy * dy) >= minSep * minSep;
+            });
+            if (isFarEnough) {
+              placed = clamped;
+              break;
+            }
           }
 
-          if (ok) centres[gi] = cand;
-        }
-      }
+          if (!placed) {
+            const fallbackTheta = (idx + 1) * golden;
+            const fallbackR = Math.sqrt((idx + 1) / (groupNodes.length + 1)) * radialLimit;
+            placed = clampToMovableDisk(
+              c.x + fallbackR * Math.cos(fallbackTheta),
+              c.y + fallbackR * Math.sin(fallbackTheta)
+            );
+          }
 
-      data.nodes.forEach(n => {
-        const gi = groupMap.get(n.id);
-        const c = centres[gi];
-        const θ = rng() * 2 * Math.PI;
-        const r = rng() * Math.max(groupR[gi] - 40, 20);
-        n.x = c.x + r * Math.cos(θ);
-        n.y = c.y + r * Math.sin(θ);
-      });
+          n.x = placed.x;
+          n.y = placed.y;
+          seeded.push(placed);
+        });
+      }
 
       let currentTransform = d3.zoomIdentity;
       let visibleGroups = new Set();
@@ -682,7 +676,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .distance(400)
         .strength(1);
 
-      const simulation = d3.forceSimulation(data.nodes)
+      simulation = d3.forceSimulation(data.nodes)
         .force('link', linkForce)
         .force('collision', d3.forceCollide().radius(120))
         .alphaDecay(0.1) // controls cooldown speed
@@ -801,6 +795,91 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       node.each(function (d) {
         nodesByGroup[d.__groupIndex].push(this);
       });
+
+      // Per-group mini simulation (expand on click, or sustained while dragging a node).
+      // DOM updates use pre-bucketed elements only — never selectAll + filter each tick.
+
+      teardownGroupMiniSimOnly = () => {
+        if (groupExpandTimerId != null) {
+          window.clearTimeout(groupExpandTimerId);
+          groupExpandTimerId = null;
+        }
+        if (groupMiniSimInstance) {
+          groupMiniSimInstance.stop();
+          groupMiniSimInstance = null;
+        }
+      };
+
+      const resumeMainSimulationAfterGroupSim = () => {
+        simulation.alphaTarget(0);
+        simulation.alpha(0.08).restart();
+      };
+
+      const stopGroupMiniSimFully = () => {
+        teardownGroupMiniSimOnly();
+        resumeMainSimulationAfterGroupSim();
+      };
+
+      const updateGroupMiniDom = (gi) => {
+        const ns = nodesByGroup[gi];
+        for (let i = 0; i < ns.length; i += 1) {
+          const el = ns[i];
+          const nd = d3.select(el).datum();
+          d3.select(el).attr('transform', `translate(${nd.x},${nd.y})`);
+        }
+        const fl = fullLinksByGroup[gi];
+        for (let i = 0; i < fl.length; i += 1) {
+          const el = fl[i];
+          const lk = d3.select(el).datum();
+          d3.select(el).attr('d', computeLinkPath(lk));
+        }
+        const als = arrowLinksByGroup[gi];
+        for (let i = 0; i < als.length; i += 1) {
+          const el = als[i];
+          const lk = d3.select(el).datum();
+          d3.select(el).attr('d', arrowPathAtFraction(lk, 1 / 3));
+        }
+      };
+
+      const startGroupMiniSim = (gi, { sustained } = {}) => {
+        if (inClusterMode) return false;
+        if (!Number.isFinite(gi)) return false;
+        teardownGroupMiniSimOnly();
+        simulation.stop();
+
+        const groupNodes = data.nodes.filter((n) => n.__groupIndex === gi);
+        const groupLinks = data.links.filter((l) => {
+          const s = groupMap.get(l.source.id ?? l.source);
+          const t = groupMap.get(l.target.id ?? l.target);
+          return s === gi && t === gi;
+        });
+        if (groupNodes.length === 0) {
+          resumeMainSimulationAfterGroupSim();
+          return false;
+        }
+
+        groupMiniSimInstance = d3
+          .forceSimulation(groupNodes)
+          .force('link', d3.forceLink(groupLinks).id((n) => n.id).distance(300).strength(1))
+          .force('collision', d3.forceCollide().radius(80))
+          .alphaDecay(0)
+          .force('charge', d3.forceManyBody().strength(-1500))
+          .on('tick', () => {
+            clampNodesToDisk(groupNodes);
+            updateGroupMiniDom(gi);
+          });
+
+        groupMiniSimInstance.alpha(1).restart();
+
+        if (!sustained) {
+          groupExpandTimerId = window.setTimeout(() => {
+            groupExpandTimerId = null;
+            stopGroupMiniSimFully();
+          }, GROUP_SIM_EXPAND_MS);
+        }
+        return true;
+      };
+
       const clusterByGroup = Array.from({ length: groupCount }, () => null);
       clusterGroupRecords.forEach(({ gi, sel }) => {
         clusterByGroup[gi] = sel.node();
@@ -1044,8 +1123,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       svg.on('wheel.interaction', markInteraction);
 
       let currentHighlight = null;
+      let suppressNextClick = false;
 
       node.on('click', (event, d) => {
+        if (suppressNextClick) {
+          suppressNextClick = false;
+          return;
+        }
         const grp = groupMap.get(d.id);
         // toggle on/off
         currentHighlight = (currentHighlight === grp ? null : grp);
@@ -1068,6 +1152,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
             const t = groupMap.get(l.target.id ?? l.target);
             return !(s === currentHighlight && t === currentHighlight);
           });
+
+        // Short in-group physics burst so the clicked cluster visibly expands (~1s).
+        if (currentHighlight != null) {
+          startGroupMiniSim(currentHighlight, { sustained: false });
+        } else {
+          stopGroupMiniSimFully();
+        }
       });
 
       // Create tooltip
@@ -1199,9 +1290,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           });
 
         renderNodeVisual(nodeGroup, d, nodePathInfo, {
-          groupMap,
-          groupSizes,
-          largeGroupThreshold,
           colorMaps,
           colorBy,
           getNodeColor,
@@ -1219,9 +1307,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           nodeGroup.selectAll('path').remove();
           nodeGroup.selectAll('circle').remove();
           renderNodeVisual(nodeGroup, d, nodePathInfo, {
-            groupMap,
-            groupSizes,
-            largeGroupThreshold,
             colorMaps: liveColorMaps,
             colorBy: liveColorBy,
             getNodeColor: liveGetNodeColor,
@@ -1276,50 +1361,41 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       updateUiSurfaceTheme();
 
       // Drag handlers
+      let activeDragNode = null;
+      /** True once pointer moved during drag; pure clicks never fire `dragged`. */
+      let dragHadMovement = false;
+
+      const releaseActiveDrag = () => {
+        // Stop any in-group sim that was sustained during drag before resuming globals.
+        stopGroupMiniSimFully();
+        // Desktop should always release pinning after drag. On touch we preserve
+        // the previous behavior (keep pinned) for direct-manipulation ergonomics.
+        if (activeDragNode && !('ontouchstart' in window) && !navigator.maxTouchPoints) {
+          activeDragNode.fx = null;
+          activeDragNode.fy = null;
+        }
+        activeDragNode = null;
+      };
+
+      handleGlobalDragRelease = () => {
+        if (!activeDragNode) return;
+        releaseActiveDrag();
+      };
+      window.addEventListener('mouseup', handleGlobalDragRelease, true);
+      window.addEventListener('blur', handleGlobalDragRelease);
+
       function dragstarted(event, d) {
         markInteraction();
-        const myGroup = groupMap.get(d.id);
+        dragHadMovement = false;
+        // Defensive: if a previous drag ended unexpectedly, clear stale pin.
+        if (activeDragNode) {
+          releaseActiveDrag();
+        }
 
-        const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === myGroup);
-        const groupLinks = data.links.filter(l => {
-          const s = groupMap.get(l.source.id ?? l.source);
-          const t = groupMap.get(l.target.id ?? l.target);
-          return s === myGroup && t === myGroup;
-        });
-
-        const miniSim = d3.forceSimulation(groupNodes)
-          .force('link', d3.forceLink(groupLinks).id(n => n.id).distance(300).strength(1))
-          .force('collision', d3.forceCollide().radius(80))
-          .alphaDecay(0)
-          .force('charge', d3.forceManyBody().strength(-1500))
-          .on('tick', () => {
-            clampNodesToDisk(groupNodes);
-
-            d3.select(svgRef.current)
-              .selectAll('.node')
-              .filter(n => groupMap.get(n.id) === myGroup)
-              .attr('transform', n => `translate(${n.x},${n.y})`);
-
-            d3.select(svgRef.current)
-              .selectAll('.link-full')
-              .filter(l => {
-                const s = groupMap.get(l.source.id ?? l.source);
-                const t = groupMap.get(l.target.id ?? l.target);
-                return s === myGroup && t === myGroup;
-              })
-              .attr('d', l => computeLinkPath(l));
-
-            d3.select(svgRef.current)
-              .selectAll('.link-arrow')
-              .filter(l => {
-                const s = groupMap.get(l.source.id ?? l.source);
-                const t = groupMap.get(l.target.id ?? l.target);
-                return s === myGroup && t === myGroup;
-              })
-              .attr('d', (l) => arrowPathAtFraction(l, 1 / 3));
-          });
-
-        miniSimRef.current = miniSim;
+        activeDragNode = d;
+        const gi = groupMap.get(d.id);
+        // Pause global sim; run in-group physics for the dragged cluster until drag ends.
+        startGroupMiniSim(gi, { sustained: true });
 
         const p = clampNodeToDisk(d.x, d.y);
         d.fx = p.x;
@@ -1327,6 +1403,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       }
 
       function dragged(event, d) {
+        dragHadMovement = true;
         markInteraction();
         const c = clampNodeToDisk(event.x, event.y);
         d.fx = c.x;
@@ -1335,15 +1412,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       function dragended(event, d) {
         markInteraction();
-        if (miniSimRef.current) {
-          miniSimRef.current.stop();
-          miniSimRef.current = null;
-        }
-
-        if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
-          d.fx = null;
-          d.fy = null;
-        }
+        // Only swallow the following click when this was a real drag; tap-to-select
+        // must not set this or `click` never runs highlight / group sim (see node.on('click')).
+        suppressNextClick = dragHadMovement;
+        // Ensure we release whichever node is actively tracked even if d differs.
+        activeDragNode = activeDragNode || d;
+        releaseActiveDrag();
       }
 
     } catch (error) {
@@ -1351,10 +1425,16 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     }
 
     return () => {
+      if (handleGlobalDragRelease) {
+        window.removeEventListener('mouseup', handleGlobalDragRelease, true);
+        window.removeEventListener('blur', handleGlobalDragRelease);
+      }
       if (interactionIdleTimer) {
         window.clearTimeout(interactionIdleTimer);
         interactionIdleTimer = null;
       }
+      teardownGroupMiniSimOnly();
+      if (simulation) simulation.stop();
       if (zoomCleanupRef.current) {
         zoomCleanupRef.current();
         zoomCleanupRef.current = null;
@@ -1387,13 +1467,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       nodeGroup.selectAll('circle').remove();
 
       renderNodeVisual(nodeGroup, d, nodePathInfo, {
-        groupMap,
-        groupSizes,
-        largeGroupThreshold,
         colorMaps,
         colorBy,
         getNodeColor,
-        includeHub: true,
+        includeHub: false,
         includeDataAttrs: true
       });
     });
@@ -1417,7 +1494,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       renderClusterContentsFromModule(clusterSel, gi, colorCounts, groupSizes[gi]);
     });
-  }, [colorBy, colorMaps, getNodeColor, createNodePath, data, largeGroupThreshold]);
+  }, [colorBy, colorMaps, getNodeColor, createNodePath, data]);
 
   return (
     <div className="network-container">

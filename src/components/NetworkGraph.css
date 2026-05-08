@@ -205,12 +205,3 @@ path {
   min-width: 0;
 }
 
-.large-group-accent-ring-glow,
-.large-group-accent-ring {
-  pointer-events: none;
-}
-
-.large-group-accent-ring {
-  paint-order: stroke fill;
-}
-

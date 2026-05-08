@@ -20,9 +20,3 @@ export function buildGroups(nodes, links) {
   });
   return groupMap;
 }
-
-export function isLargeGroupNode(d, groupMap, groupSizes, largeGroupThreshold) {
-  const gi = groupMap.get(d.id);
-  if (gi == null) return false;
-  return groupSizes[gi] > largeGroupThreshold;
-}
