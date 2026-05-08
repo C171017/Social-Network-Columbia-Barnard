@@ -276,33 +276,44 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       .call(zoom.transform, initialTransform)
       .call(zoom.touchable(true));
 
-    svg.style('cursor', 'grab')
-      .on('mousedown.indicator', () => svg.style('cursor', 'grabbing'))
-      .on('mouseup.indicator', () => svg.style('cursor', 'grab'));
-
-    // Trackpad vs mouse-wheel classifier.
-    // Pinch (real or synthetic ctrl/meta) is always zoom.
-    // Otherwise, trackpad wheels arrive as pixel-mode events with small,
-    // fractional, or horizontal deltas; mouse wheels arrive as larger,
-    // integer, vertical-only deltas.
-    const classifyWheel = (e) => {
-      if (e.ctrlKey || e.metaKey) return 'zoom';
-      const absX = Math.abs(e.deltaX);
-      const absY = Math.abs(e.deltaY);
-      const fractional = !Number.isInteger(e.deltaY) || !Number.isInteger(e.deltaX);
-      const isTrackpad = e.deltaMode === 0 && (absX > 0 || absY < 50 || fractional);
-      return isTrackpad ? 'pan' : 'zoom';
+    // Pan cursor: only force grabbing while actively panning the view (not on node drag).
+    // Idle graph uses cursor: default from CSS; clear inline cursor when done so that applies again.
+    const resetSvgPanCursor = () => {
+      svg.style('cursor', null);
     };
+
+    const clearGrabIfNoButtonHeld = (e) => {
+      if (!e.buttons) resetSvgPanCursor();
+    };
+
+    const isViewPanCursorSurface = (event) => {
+      const el = event.target;
+      return Boolean(el && typeof el.closest === 'function' && !el.closest('.node'));
+    };
+
+    svg
+      .on('mousedown.indicator', (event) => {
+        if (event.button !== 0) return;
+        if (!isViewPanCursorSurface(event)) return;
+        svg.style('cursor', 'grabbing');
+      })
+      .on('mouseup.indicator', (event) => {
+        if (event.button !== 0) return;
+        resetSvgPanCursor();
+      });
+
+    window.addEventListener('pointerup', resetSvgPanCursor, true);
+    window.addEventListener('pointercancel', resetSvgPanCursor, true);
+    window.addEventListener('pointermove', clearGrabIfNoButtonHeld, true);
 
     const onWheel = (e) => {
       e.preventDefault();
       const sel = d3.select(node);
-      const kind = classifyWheel(e);
+      const isPinchZoom = e.ctrlKey || e.metaKey;
 
-      if (kind === 'zoom') {
+      if (isPinchZoom) {
         const [px, py] = d3.pointer(e, node);
-        // Pinch (synthetic ctrl) feels right at higher sensitivity than a mouse wheel notch.
-        const sensitivity = (e.ctrlKey || e.metaKey) ? 0.01 : 0.002;
+        const sensitivity = 0.01;
         const factor = Math.exp(-e.deltaY * sensitivity);
         sel.call(zoom.scaleBy, factor, [px, py]);
         return;
@@ -338,7 +349,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         node.removeEventListener('pointermove', onMove);
         node.removeEventListener('pointerup', onUp);
         node.removeEventListener('pointercancel', onUp);
-        svg.style('cursor', 'grab');
+        svg.style('cursor', null);
       };
       node.addEventListener('pointermove', onMove);
       node.addEventListener('pointerup', onUp);
@@ -353,6 +364,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     node.addEventListener('auxclick', onAuxClick);
 
     const cleanup = () => {
+      window.removeEventListener('pointerup', resetSvgPanCursor, true);
+      window.removeEventListener('pointercancel', resetSvgPanCursor, true);
+      window.removeEventListener('pointermove', clearGrabIfNoButtonHeld, true);
+      svg.on('mousedown.indicator', null).on('mouseup.indicator', null);
       node.removeEventListener('wheel', onWheel);
       node.removeEventListener('pointerdown', onPointerDown);
       node.removeEventListener('auxclick', onAuxClick);

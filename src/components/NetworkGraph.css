@@ -26,9 +26,13 @@
 .network-graph {
   flex: 1;
   background: black;
-  cursor: grab;
+  cursor: default;
   position: relative;
   z-index: 2;
+}
+
+.network-graph .node {
+  cursor: pointer;
 }
 
 .node circle {
