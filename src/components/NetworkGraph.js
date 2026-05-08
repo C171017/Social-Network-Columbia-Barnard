@@ -72,11 +72,25 @@ function appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGro
 
 //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////
-//常量配置（Configuration Constants)
 
-// Define zoom settings
-const ZOOM_MIN = 0.03;
-const ZOOM_MAX = 1;
+
+// Define zoom settings (split mobile vs desktop).
+// Values below default to the existing behavior; tweak separately as needed.
+const ZOOM_MIN_DESKTOP = 0.03;
+const ZOOM_MAX_DESKTOP = 0.8;
+const ZOOM_MIN_MOBILE = 0.01;
+const ZOOM_MAX_MOBILE = 1;
+
+// Multiplier applied to the computed "fit-to-viewport" initial zoom scale.
+// (1 keeps current behavior; increase >1 to zoom in more initially on mobile/desktop.)
+const INITIAL_ZOOM_MULTIPLIER_DESKTOP = 1.4;
+const INITIAL_ZOOM_MULTIPLIER_MOBILE = 1.0;
+
+const MOBILE_BREAKPOINT_PX = 768;
+function isMobileViewport() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches;
+}
 
 // Canvas: circle clip, soft rim; white↔grey onset and drag clamp share CANVAS_WHITE_INSET / OUTER_RADIUS.
 const LEGACY_SQUARE_SIDE = 25000;
@@ -243,6 +257,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   const setupZoom = (svg, g, containerWidth, containerHeight, onTransformChange) => {
     const node = svg.node();
 
+    const mobile = isMobileViewport();
+    const ZOOM_MIN = mobile ? ZOOM_MIN_MOBILE : ZOOM_MIN_DESKTOP;
+    const ZOOM_MAX = mobile ? ZOOM_MAX_MOBILE : ZOOM_MAX_DESKTOP;
+
     const zoom = d3.zoom()
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
@@ -265,7 +283,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     // Fit the circular bounding box in the viewport
     const scaleX = containerWidth / VISUAL_SCENE_EXTENT;
     const scaleY = containerHeight / VISUAL_SCENE_EXTENT;
-    const initialScale = Math.min(scaleX, scaleY);
+    const initialScaleBase = Math.min(scaleX, scaleY);
+    const initialZoomMultiplier = mobile ? INITIAL_ZOOM_MULTIPLIER_MOBILE : INITIAL_ZOOM_MULTIPLIER_DESKTOP;
+    const initialScale = initialScaleBase * initialZoomMultiplier;
 
     const initialTransform = d3.zoomIdentity
       .translate(containerWidth / 2, containerHeight / 2)
@@ -450,8 +470,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       const R_grad = CANVAS_BACKDROP_RADIUS;
       const H = CANVAS_EDGE_FEATHER_HALF;
-      const innerSpan = Math.max(CIRCLE_RADIUS - CANVAS_WHITE_OUTER_RADIUS, 1);
-      const innerAt = t => CANVAS_WHITE_OUTER_RADIUS + innerSpan * t;
       const pctOfDist = dist => `${(Math.min(dist, R_grad) / R_grad) * 100}%`;
 
       const canvasEdgeGrad = defs.append('radialGradient')
@@ -463,45 +481,65 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('fy', CIRCLE_CY)
         .attr('r', R_grad);
 
+      // Smoother black→white backdrop ramp (avoid visible “banding” / seam).
+      // We generate many stops between a slightly earlier transition start and the
+      // outer radius, using easing + a dense color interpolation.
+      const WHITE_EDGE = '#fafbfc';
+      const transitionStartR = Math.max(0, CANVAS_WHITE_OUTER_RADIUS - H * 0.22);
+      const fadeStartU = 0.94; // start fading to transparent only near the very edge
+      const fadePow = 0.85; // lower = gentler fade curve
+      const stopCount = 40; // denser stops => fewer chances of visible banding
+
+      const colorInterp = d3.interpolateRgbBasis([
+        '#fafbfc',
+        '#eef0f4',
+        '#d4d7de',
+        '#a8adb8',
+        '#8b909b',
+        '#6e737d',
+        '#4b4e56',
+        '#32343a',
+        '#1b1c20',
+        '#0a0a0b',
+        '#000000',
+      ]);
+
+      // Keep the early region flat/white so the inner disk feels crisp.
       canvasEdgeGrad.append('stop')
         .attr('offset', '0%')
-        .attr('stop-color', '#fafbfc');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(CANVAS_WHITE_OUTER_RADIUS))
-        .attr('stop-color', '#fafbfc');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(innerAt(0.18)))
-        .attr('stop-color', '#eef0f4');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(innerAt(0.38)))
-        .attr('stop-color', '#d4d7de');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(innerAt(0.58)))
-        .attr('stop-color', '#a8adb8');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(innerAt(0.78)))
-        .attr('stop-color', '#8b909b');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(CIRCLE_RADIUS))
-        .attr('stop-color', '#6e737d');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.22))
-        .attr('stop-color', '#4b4e56');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.44))
-        .attr('stop-color', '#32343a');
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.64))
-        .attr('stop-color', '#1b1c20')
-        .attr('stop-opacity', 0.82);
-      canvasEdgeGrad.append('stop')
-        .attr('offset', pctOfDist(CIRCLE_RADIUS + H * 0.84))
-        .attr('stop-color', '#0a0a0b')
-        .attr('stop-opacity', 0.42);
-      canvasEdgeGrad.append('stop')
-        .attr('offset', '100%')
-        .attr('stop-color', '#000000')
-        .attr('stop-opacity', 0);
+        .attr('stop-color', WHITE_EDGE)
+        .attr('stop-opacity', 1);
+
+      const smoothstep = (t) => t * t * (3 - 2 * t);
+
+      for (let i = 0; i < stopCount; i++) {
+        const u = i / (stopCount - 1); // 0..1 across (transitionStartR..R_grad)
+        const r = transitionStartR + (R_grad - transitionStartR) * u;
+        const offset = pctOfDist(r);
+        const eased = smoothstep(u);
+
+        // Fade only in the last ~6% of the radius; this preserves the “solid”
+        // look before blending into the black page background.
+        const opacity = u < fadeStartU
+          ? 1
+          : Math.pow((1 - u) / (1 - fadeStartU), fadePow);
+
+        canvasEdgeGrad.append('stop')
+          .attr('offset', offset)
+          .attr('stop-color', colorInterp(eased))
+          .attr('stop-opacity', opacity);
+      }
+
+      // Tiny blur to further hide any residual banding caused by rasterization.
+      const backdropSoften = defs.append('filter')
+        .attr('id', 'backdrop-soften')
+        .attr('x', '-15%')
+        .attr('y', '-15%')
+        .attr('width', '130%')
+        .attr('height', '130%');
+      backdropSoften.append('feGaussianBlur')
+        .attr('in', 'SourceGraphic')
+        .attr('stdDeviation', 2.2);
       defs.append('marker')
         .attr('id', 'arrow')
         .attr('viewBox', '0 -5 10 10')
@@ -577,7 +615,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('cx', CIRCLE_CX)
         .attr('cy', CIRCLE_CY)
         .attr('r', CANVAS_BACKDROP_RADIUS)
-        .attr('fill', 'url(#canvas-edge-soft)');
+        .attr('fill', 'url(#canvas-edge-soft)')
+        .attr('filter', 'url(#backdrop-soften)');
 
       const world = g.append('g')
         .attr('clip-path', 'url(#viewport-circle-clip)')
