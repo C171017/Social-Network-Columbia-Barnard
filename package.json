@@ -25,6 +25,11 @@
     "deploy": "gh-pages -d build",
     "process-data": "bash script/processData.sh"
   },
+  "jest": {
+    "transformIgnorePatterns": [
+      "/node_modules/(?!d3|internmap|delaunator|robust-predicates)/"
+    ]
+  },
   "eslintConfig": {
     "extends": [
       "react-app",

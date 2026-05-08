@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import './Legend.css';
-import data from '../data/network_data.json';
 
 
 
@@ -33,19 +32,25 @@ const INITIAL_DYNAMIC_ITEMS = {
 
 };
 
-const Legend = ({ colorBy }) => {
+const Legend = ({ colorBy, data }) => {
   const [legendItems, setLegendItems] = useState({
     ...STATIC_LEGEND_ITEMS,
     ...INITIAL_DYNAMIC_ITEMS
   });
 
   useEffect(() => {
+    const nodes = data?.nodes;
+    if (!nodes?.length) {
+      setLegendItems({});
+      return;
+    }
+
     // Helper: flatten & dedupe values for a given key
     const toLegend = key => {
       // 1) collect and split comma‑lists when the raw value is a string
       // 2) convert numbers/booleans to strings
       // 3) ignore null/undefined
-      const all = data.nodes.flatMap(n => {
+      const all = nodes.flatMap(n => {
         const raw = n[key];
         if (typeof raw === 'string') {
           return raw
@@ -69,20 +74,25 @@ const Legend = ({ colorBy }) => {
 
     // Build legendItems for every field except id/zip_*
     const items = {};
-    Object.keys(data.nodes[0])
+    Object.keys(nodes[0])
       .filter(k => k !== 'id' && !k.startsWith('zip_'))
       .forEach(k => {
         items[k] = toLegend(k);
       });
 
     setLegendItems(items);
-  }, []);
+  }, [data]);
 
   const currentItems = legendItems[colorBy] || [];
 
-  const title = colorBy === 'email-sequence'
-  // ? 'Email Sequence' 
-  // : `Color by ${colorBy.charAt(0).toUpperCase() + colorBy.slice(1)}`;
+  const fieldLabel = (key) =>
+    key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const title = !colorBy
+    ? 'Legend'
+    : colorBy === 'email-sequence'
+      ? 'Email sequence'
+      : `Color by ${fieldLabel(colorBy)}`;
 
   return (
     <div className="legend">

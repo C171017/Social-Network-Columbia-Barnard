@@ -2,12 +2,11 @@
 ////////////////////////////////////////////
 //Imports (导入模块)
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import ControlPanel from './ControlPanel';
 import Legend from './Legend';
 import './NetworkGraph.css';
-import raw from '../data/network_data.json';
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 
@@ -46,7 +45,6 @@ function buildGroups(nodes, links) {
 // Define zoom settings
 const ZOOM_MIN = 0.03;
 const ZOOM_MAX = 1;
-const ZOOM_DEFAULT = 1;
 
 // Fixed visualization area dimensions (regardless of screen size)
 const FIXED_AREA_WIDTH = 25000;
@@ -89,7 +87,6 @@ const COLOR_PALETTE = [
 
 const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
   const svgRef = useRef();
-  const [zoomLevel, setZoomLevel] = useState(ZOOM_DEFAULT);
   const zoomRef = useRef(null);
   const [colorMaps, setColorMaps] = useState({});
 
@@ -106,6 +103,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   // Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
   useEffect(() => {
     const nodes = data.nodes;
+    if (!nodes?.length) {
+      setColorMaps({});
+      return;
+    }
     const uniq = arr => [...new Set(arr)].filter(Boolean);
 
     const maps = {};
@@ -139,7 +140,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     const onKeyDown = e => {
       if (e.key === 'f' && document.activeElement !== searchInputRef.current) {
         e.preventDefault();
-        searchInputRef.current.focus();
+        searchInputRef.current?.focus();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -191,46 +192,40 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
 // 8.	getNodeColor & createNodePath (节点着色 & 多值拆分)
 
-  // Color schemes for different attributes
-  const getNodeColor = (d) => {
+  const getNodeColor = useCallback((d) => {
     if (!colorMaps || !d || !colorBy) return '#9e9e9e';
 
-    // use first item when the field contains a comma‑separated list
-    const raw = d[colorBy];
-    if (raw == null || raw === '') return '#9e9e9e';
-    const firstVal = String(raw).split(',')[0].trim();
+    const field = d[colorBy];
+    if (field == null || field === '') return '#9e9e9e';
+    const firstVal = String(field).split(',')[0].trim();
 
-    // generic lookup (covers major, school, cu_party, whatever)
     if (colorMaps[colorBy] && colorMaps[colorBy][firstVal]) {
       return colorMaps[colorBy][firstVal];
     }
 
-    // one special case that isn’t in the colour map
     if (colorBy === 'email-sequence') return '#5F6368';
 
-    // fall‑back grey
     return '#9e9e9e';
-  };
+  }, [colorMaps, colorBy]);
 
-  // Create multi-part nodes for multiple items
   /**
    * Build slice information for ANY comma‑separated multivalue field.
    * Returns { items, colorMap } or null if single‑valued.
    */
-  const createNodePath = (d) => {
+  const createNodePath = useCallback((d) => {
     if (!d || !colorMaps || !colorBy) return null;
 
-    const raw = d[colorBy];
-    if (typeof raw !== 'string' || !raw.includes(',')) return null;
+    const field = d[colorBy];
+    if (typeof field !== 'string' || !field.includes(',')) return null;
 
-    const items = raw.split(',').map(s => s.trim()).filter(Boolean);
+    const items = field.split(',').map(s => s.trim()).filter(Boolean);
     if (items.length <= 1) return null;
 
     return {
       items,
       colorMap: colorMaps[colorBy] || {}
     };
-  };
+  }, [colorMaps, colorBy]);
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -248,7 +243,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
-        setZoomLevel(Math.round(event.transform.k * 100) / 100);
       })
       .filter(event => event.type !== 'dblclick' && !event.ctrlKey);
 
@@ -780,6 +774,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     } catch (error) {
       console.error("Error rendering network visualization:", error);
     }
+    // Intentionally only `data`: full D3 scene graph is rebuilt when the dataset changes;
+    // `colorBy` / `colorMaps` updates are handled by the recolor effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
   }, [data]);
 
 
@@ -826,12 +823,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       // Optional center dot
       nodeGroup.append('circle').attr('r', 6);
     });
-  }, [colorBy, colorMaps]);
-
-  const preventAndCall = (handler) => (e) => {
-    e.preventDefault();
-    handler();
-  };
+  }, [colorBy, colorMaps, getNodeColor, createNodePath]);
 
   return (
     <div className="network-container">
@@ -852,8 +844,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           aria-label="Network graph visualization - draggable view"></svg>
 
         <div className="controls-legend-container">
-          <ControlPanel colorBy={colorBy} setColorBy={setColorBy} />
-          <Legend colorBy={colorBy} />
+          <ControlPanel colorBy={colorBy} setColorBy={setColorBy} nodes={data.nodes} />
+          <Legend colorBy={colorBy} data={data} />
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import NetworkGraph from './components/NetworkGraph';
 import InstructionModal from './components/InstructionModal';
 import './App.css';
@@ -14,12 +14,7 @@ try {
 function App() {
   const [colorBy, setColorBy] = useState('year');
   const [data] = useState(networkData);
-  const [showInstructions, setShowInstructions] = useState(false);
-
-  // Show the instruction modal once on first load
-  useEffect(() => {
-    setShowInstructions(true);
-  }, []);
+  const [showInstructions, setShowInstructions] = useState(true);
 
   return (
     <div className="App">
