@@ -32,7 +32,7 @@ const INITIAL_DYNAMIC_ITEMS = {
 
 };
 
-const Legend = ({ colorBy, data }) => {
+const Legend = ({ colorBy, data, darkSurface = false }) => {
   const [legendItems, setLegendItems] = useState({
     ...STATIC_LEGEND_ITEMS,
     ...INITIAL_DYNAMIC_ITEMS
@@ -95,7 +95,7 @@ const Legend = ({ colorBy, data }) => {
       : `Color by ${fieldLabel(colorBy)}`;
 
   return (
-    <div className="legend">
+    <div className={`legend${darkSurface ? ' dark-surface' : ''}`}>
       <h3>{title}</h3>
       {currentItems.length === 0 ? (
         <p className="no-legend">No legend items available for this filter</p>

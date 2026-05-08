@@ -149,6 +149,10 @@ path {
   opacity: .1 !important;
 }
 
+.culled {
+  display: none;
+}
+
 .node.highlight circle,
 .node.highlight path,
 .link-full.highlight,

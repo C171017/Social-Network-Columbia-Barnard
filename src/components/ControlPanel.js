@@ -5,7 +5,7 @@ const toLabel = k =>
   k.replace(/_/g,' ')
    .replace(/\b\w/g,c=>c.toUpperCase());
 
-const ControlPanel = ({ colorBy, setColorBy, nodes = [] }) => {
+const ControlPanel = ({ colorBy, setColorBy, nodes = [], darkSurface = false }) => {
   const colorOptions = useMemo(() => {
     if (!nodes.length) return [];
     const allKeys = Object.keys(nodes[0]);
@@ -29,7 +29,7 @@ const ControlPanel = ({ colorBy, setColorBy, nodes = [] }) => {
   }, [colorOptions, colorBy, setColorBy]);
 
   return (
-    <div className="control-panel">
+    <div className={`control-panel${darkSurface ? ' dark-surface' : ''}`}>
       <div className="filter-section">
         <label htmlFor="color-select"></label>
         <select

@@ -144,9 +144,11 @@ const COLOR_PALETTE = [
 
 const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
   const svgRef = useRef();
+  const controlsRef = useRef(null);
   const zoomRef = useRef(null);
   const zoomCleanupRef = useRef(null);
   const [colorMaps, setColorMaps] = useState({});
+  const [darkSurface, setDarkSurface] = useState(false);
 
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -238,7 +240,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   //   - left drag       -> pan  (handled by d3.zoom)
   //   - middle drag     -> pan  (custom pointer handler below)
   //   - dblclick        -> ignored
-  const setupZoom = (svg, g, containerWidth, containerHeight) => {
+  const setupZoom = (svg, g, containerWidth, containerHeight, onTransformChange) => {
     const node = svg.node();
 
     const zoom = d3.zoom()
@@ -249,6 +251,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       ])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
+        onTransformChange?.(event.transform);
       })
       .filter((event) => {
         if (event.type === 'dblclick') return false;
@@ -624,9 +627,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         n.y = c.y + r * Math.sin(θ);
       });
 
-      const { zoom, cleanup: cleanupZoom } = setupZoom(svg, g, width, height);
-      zoomRef.current = zoom;
-      zoomCleanupRef.current = cleanupZoom;
+      let currentTransform = d3.zoomIdentity;
+      let visibleGroups = new Set();
+      let lastUiIsDark = null;
 
       const linkForce = d3.forceLink(data.links)
         .id(d => d.id)
@@ -641,25 +644,31 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           simulation.stop(); // freeze after global layout settles
         });
 
+      data.nodes.forEach((n) => {
+        n.__groupIndex = groupMap.get(n.id);
+      });
+      data.links.forEach((l) => {
+        l.__groupIndex = groupMap.get(l.source.id ?? l.source);
+      });
+
       // Create links
       const linkGroup = world.append('g');
-
-      data.links.forEach(ld => {
-        // Full‐length link
-        linkGroup.append('path')
-          .datum(ld)
-          .attr('class', 'link-full')
-          .attr('fill', 'none')
-          .attr('stroke', '#999')
-          .attr('stroke-width', 3);
-        // Short 1/3 link for arrow
-        linkGroup.append('path')
-          .datum(ld)
-          .attr('class', 'link-arrow')
-          .attr('fill', 'none')
-          .attr('stroke', 'none')
-          .attr('marker-end', 'url(#arrow)');
-      });
+      const fullLinks = linkGroup.selectAll('.link-full')
+        .data(data.links)
+        .enter()
+        .append('path')
+        .attr('class', 'link-full')
+        .attr('fill', 'none')
+        .attr('stroke', '#999')
+        .attr('stroke-width', 3);
+      const arrowLinks = linkGroup.selectAll('.link-arrow')
+        .data(data.links)
+        .enter()
+        .append('path')
+        .attr('class', 'link-arrow')
+        .attr('fill', 'none')
+        .attr('stroke', 'none')
+        .attr('marker-end', 'url(#arrow)');
 
       // Create nodes
       const node = world.append('g')
@@ -672,6 +681,101 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .on('start', dragstarted)
           .on('drag', dragged)
           .on('end', dragended));
+
+      const updateUiSurfaceTheme = () => {
+        const controlsEl = controlsRef.current;
+        if (!controlsEl) return;
+
+        const graphRect = svgRef.current.getBoundingClientRect();
+        const panelRect = controlsEl.getBoundingClientRect();
+        if (!graphRect.width || !graphRect.height) return;
+
+        // Panel center in graph-local screen space.
+        const sx = panelRect.left + panelRect.width / 2 - graphRect.left;
+        const sy = panelRect.top + panelRect.height / 2 - graphRect.top;
+
+        // Convert from screen -> world using the current zoom transform.
+        const wx = (sx - currentTransform.x) / currentTransform.k;
+        const wy = (sy - currentTransform.y) / currentTransform.k;
+        const dist = Math.hypot(wx - CIRCLE_CX, wy - CIRCLE_CY);
+
+        // Outside/near outer ring is visually dark; inner disk is bright.
+        const uiIsDark = dist >= CANVAS_WHITE_OUTER_RADIUS * 1.02;
+        if (uiIsDark !== lastUiIsDark) {
+          lastUiIsDark = uiIsDark;
+          setDarkSurface(uiIsDark);
+        }
+      };
+
+      const applyGroupCulling = () => {
+        const t = currentTransform;
+        const margin = NODE_RADIUS + 20;
+        const minX = (-t.x) / t.k - margin;
+        const maxX = (width - t.x) / t.k + margin;
+        const minY = (-t.y) / t.k - margin;
+        const maxY = (height - t.y) / t.k + margin;
+
+        const seen = Array.from({ length: groupCount }, () => false);
+        let seenCount = 0;
+        for (const n of data.nodes) {
+          const gi = n.__groupIndex;
+          if (seen[gi]) continue;
+          if (n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY) {
+            seen[gi] = true;
+            seenCount += 1;
+            if (seenCount === groupCount) break;
+          }
+        }
+
+        const nextVisibleGroups = new Set();
+        seen.forEach((v, i) => { if (v) nextVisibleGroups.add(i); });
+        if (nextVisibleGroups.size === 0 && groupCount > 0) {
+          nextVisibleGroups.add(0);
+        }
+
+        const changed =
+          nextVisibleGroups.size !== visibleGroups.size
+          || [...nextVisibleGroups].some(gi => !visibleGroups.has(gi));
+        visibleGroups = nextVisibleGroups;
+        if (!changed) return;
+
+        node.classed('culled', d => !visibleGroups.has(d.__groupIndex));
+        fullLinks.classed('culled', d => !visibleGroups.has(d.__groupIndex));
+        arrowLinks.classed('culled', d => !visibleGroups.has(d.__groupIndex));
+
+        // Freeze physics for offscreen groups and unfreeze when visible again.
+        data.nodes.forEach((n) => {
+          const isVisible = visibleGroups.has(n.__groupIndex);
+          if (!isVisible) {
+            if (!n.__culledFixed && n.fx == null && n.fy == null) {
+              n.fx = n.x;
+              n.fy = n.y;
+              n.__culledFixed = true;
+            }
+          } else if (n.__culledFixed) {
+            n.fx = null;
+            n.fy = null;
+            n.__culledFixed = false;
+          }
+        });
+
+        simulation.alpha(0.12).restart();
+        updateUiSurfaceTheme();
+      };
+
+      const { zoom, cleanup: cleanupZoom } = setupZoom(
+        svg,
+        g,
+        width,
+        height,
+        (transform) => {
+          currentTransform = transform;
+          applyGroupCulling();
+          updateUiSurfaceTheme();
+        }
+      );
+      zoomRef.current = zoom;
+      zoomCleanupRef.current = cleanupZoom;
 
       let currentHighlight = null;
 
@@ -802,24 +906,35 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       simulation.on('tick', () => {
         clampNodesInPlace(data.nodes);
 
-        svg.selectAll('.link-full').attr('d', d => linkPath(d));
+        fullLinks
+          .filter(d => visibleGroups.has(d.__groupIndex))
+          .attr('d', d => linkPath(d));
         // Arrow paths at 1/3 from source → target
-        svg.selectAll('.link-arrow').attr('d', d => {
-          const dx = d.target.x - d.source.x;
-          const dy = d.target.y - d.source.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist === 0) return 'M0,0L0,0';
-          const ux = dx / dist, uy = dy / dist;
-          // start just outside source circle
-          const sx = d.source.x + ux * NODE_RADIUS, sy = d.source.y + uy * NODE_RADIUS;
-          // end at 1/3 of the link
-          const ex = d.source.x + dx * (1 / 3), ey = d.source.y + dy * (1 / 3);
-          return `M${sx},${sy}L${ex},${ey}`;
-        });
+        arrowLinks
+          .filter(d => visibleGroups.has(d.__groupIndex))
+          .attr('d', d => {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist === 0) return 'M0,0L0,0';
+            const ux = dx / dist, uy = dy / dist;
+            // start just outside source circle
+            const sx = d.source.x + ux * NODE_RADIUS, sy = d.source.y + uy * NODE_RADIUS;
+            // end at 1/3 of the link
+            const ex = d.source.x + dx * (1 / 3), ey = d.source.y + dy * (1 / 3);
+            return `M${sx},${sy}L${ex},${ey}`;
+          });
 
         // Update node positions
-        node.attr('transform', d => `translate(${d.x},${d.y})`);
+        node
+          .filter(d => visibleGroups.has(d.__groupIndex))
+          .attr('transform', d => `translate(${d.x},${d.y})`);
+
+        applyGroupCulling();
+        updateUiSurfaceTheme();
       });
+
+      updateUiSurfaceTheme();
 
       // Drag handlers
       function dragstarted(event, d) {
@@ -974,9 +1089,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>
 
-        <div className="controls-legend-container">
-          <ControlPanel colorBy={colorBy} setColorBy={setColorBy} nodes={data.nodes} />
-          <Legend colorBy={colorBy} data={data} />
+        <div ref={controlsRef} className="controls-legend-container">
+          <ControlPanel
+            colorBy={colorBy}
+            setColorBy={setColorBy}
+            nodes={data.nodes}
+            darkSurface={darkSurface}
+          />
+          <Legend colorBy={colorBy} data={data} darkSurface={darkSurface} />
         </div>
       </div>
     </div>
