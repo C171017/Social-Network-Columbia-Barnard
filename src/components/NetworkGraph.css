@@ -134,14 +134,30 @@ path {
 
 @media (max-width: 600px) {
   .controls-legend-container {
-    flex-direction: row;   /* side‑by‑side */
+    position: fixed;
+    left: 4vw;
+    right: 4vw;
     bottom: 10px;
-  }
-  .controls-legend-container > * {
-    /* Use flex sizing so the flex-gap is accounted for (avoid overflow from 50% widths). */
     width: auto;
-    flex: 1 1 0;
+    align-items: center;
+  }
+  .controls-legend-container > .control-panel {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
     min-width: 0;
+    margin: 0;
+    z-index: 101;
+  }
+  .controls-legend-container > .control-panel select {
+    width: auto;
+    min-width: 180px;
+  }
+  .controls-legend-container > .legend {
+    width: 100%;
+    max-width: 100%;
   }
 }
 

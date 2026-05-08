@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Legend.css';
 import { COLOR_PALETTE } from '../../shared/constants/colorPalette';
-import { extractNodeValues, toLabel } from '../../shared/utils/fieldMetadata';
+import { extractNodeValues } from '../../shared/utils/fieldMetadata';
 
 const Legend = ({ colorBy, data, darkSurface = false }) => {
   const [legendItems, setLegendItems] = useState({});
@@ -33,11 +33,8 @@ const Legend = ({ colorBy, data, darkSurface = false }) => {
 
   const currentItems = legendItems[colorBy] || [];
 
-  const title = !colorBy ? 'Legend' : colorBy === 'email-sequence' ? 'Email sequence' : `Color by ${toLabel(colorBy)}`;
-
   return (
     <div className={`legend${darkSurface ? ' dark-surface' : ''}`}>
-      <h3>{title}</h3>
       {currentItems.length === 0 ? (
         <p className="no-legend">No legend items available for this filter</p>
       ) : (
