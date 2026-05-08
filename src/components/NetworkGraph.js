@@ -145,6 +145,7 @@ const COLOR_PALETTE = [
 const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) => {
   const svgRef = useRef();
   const zoomRef = useRef(null);
+  const zoomCleanupRef = useRef(null);
   const [colorMaps, setColorMaps] = useState({});
 
 
@@ -291,7 +292,17 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
 
   // Setup zoom behavior
+  // Hybrid pan/zoom (Figma-ish on trackpad, Maps-ish on mouse):
+  //   - trackpad pinch  -> zoom (wheel + ctrlKey/metaKey)
+  //   - trackpad swipe  -> pan  (wheel, small/fractional/horizontal delta)
+  //   - mouse wheel     -> zoom (focal at cursor)
+  //   - shift + wheel   -> horizontal pan
+  //   - left drag       -> pan  (handled by d3.zoom)
+  //   - middle drag     -> pan  (custom pointer handler below)
+  //   - dblclick        -> ignored
   const setupZoom = (svg, g, containerWidth, containerHeight) => {
+    const node = svg.node();
+
     const zoom = d3.zoom()
       .scaleExtent([ZOOM_MIN, ZOOM_MAX])
       .translateExtent([
@@ -301,7 +312,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
       })
-      .filter(event => event.type !== 'dblclick' && !event.ctrlKey);
+      .filter((event) => {
+        if (event.type === 'dblclick') return false;
+        // Wheel is routed manually to support hybrid pan/zoom semantics.
+        if (event.type === 'wheel') return false;
+        // Allow left button (0) for normal pan; middle button (1) is handled separately.
+        if (event.type === 'mousedown') return event.button === 0;
+        return true;
+      });
 
     // Fit the circular bounding box in the viewport
     const scaleX = containerWidth / VISUAL_SCENE_EXTENT;
@@ -321,7 +339,85 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       .on('mousedown.indicator', () => svg.style('cursor', 'grabbing'))
       .on('mouseup.indicator', () => svg.style('cursor', 'grab'));
 
-    return zoom;
+    // Trackpad vs mouse-wheel classifier.
+    // Pinch (real or synthetic ctrl/meta) is always zoom.
+    // Otherwise, trackpad wheels arrive as pixel-mode events with small,
+    // fractional, or horizontal deltas; mouse wheels arrive as larger,
+    // integer, vertical-only deltas.
+    const classifyWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) return 'zoom';
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
+      const fractional = !Number.isInteger(e.deltaY) || !Number.isInteger(e.deltaX);
+      const isTrackpad = e.deltaMode === 0 && (absX > 0 || absY < 50 || fractional);
+      return isTrackpad ? 'pan' : 'zoom';
+    };
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      const sel = d3.select(node);
+      const kind = classifyWheel(e);
+
+      if (kind === 'zoom') {
+        const [px, py] = d3.pointer(e, node);
+        // Pinch (synthetic ctrl) feels right at higher sensitivity than a mouse wheel notch.
+        const sensitivity = (e.ctrlKey || e.metaKey) ? 0.01 : 0.002;
+        const factor = Math.exp(-e.deltaY * sensitivity);
+        sel.call(zoom.scaleBy, factor, [px, py]);
+        return;
+      }
+
+      // pan: convert screen-pixel delta to world units (divide by current scale k).
+      const t = d3.zoomTransform(node);
+      const dx = e.shiftKey ? -e.deltaY : -e.deltaX;
+      const dy = e.shiftKey ? 0 : -e.deltaY;
+      sel.call(zoom.translateBy, dx / t.k, dy / t.k);
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+
+    // Middle-mouse drag pan (kept separate from d3.zoom which only handles button 0).
+    const onPointerDown = (e) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      try { node.setPointerCapture(e.pointerId); } catch (_) { /* not all targets support capture */ }
+
+      let lastX = e.clientX;
+      let lastY = e.clientY;
+      svg.style('cursor', 'grabbing');
+
+      const onMove = (m) => {
+        const dx = m.clientX - lastX;
+        const dy = m.clientY - lastY;
+        lastX = m.clientX;
+        lastY = m.clientY;
+        const t = d3.zoomTransform(node);
+        d3.select(node).call(zoom.translateBy, dx / t.k, dy / t.k);
+      };
+      const onUp = () => {
+        node.removeEventListener('pointermove', onMove);
+        node.removeEventListener('pointerup', onUp);
+        node.removeEventListener('pointercancel', onUp);
+        svg.style('cursor', 'grab');
+      };
+      node.addEventListener('pointermove', onMove);
+      node.addEventListener('pointerup', onUp);
+      node.addEventListener('pointercancel', onUp);
+    };
+    node.addEventListener('pointerdown', onPointerDown);
+
+    // Suppress browser auto-scroll cursor / context menu on middle button.
+    const onAuxClick = (e) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    node.addEventListener('auxclick', onAuxClick);
+
+    const cleanup = () => {
+      node.removeEventListener('wheel', onWheel);
+      node.removeEventListener('pointerdown', onPointerDown);
+      node.removeEventListener('auxclick', onAuxClick);
+    };
+
+    return { zoom, cleanup };
   };
 
 
@@ -343,17 +439,20 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
   // Touch event handler
   useEffect(() => {
+    const svgElement = svgRef.current;
+    if (!svgElement) return undefined;
+
     const handleTouch = (e) => {
       if (e.touches?.length >= 2) e.preventDefault();
     };
 
     const options = { passive: false };
-    document.addEventListener('touchmove', handleTouch, options);
-    document.addEventListener('touchstart', handleTouch, options);
+    svgElement.addEventListener('touchmove', handleTouch, options);
+    svgElement.addEventListener('touchstart', handleTouch, options);
 
     return () => {
-      document.removeEventListener('touchmove', handleTouch);
-      document.removeEventListener('touchstart', handleTouch);
+      svgElement.removeEventListener('touchmove', handleTouch);
+      svgElement.removeEventListener('touchstart', handleTouch);
     };
   }, []);
 
@@ -361,7 +460,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
   // Main visualization effect
   useEffect(() => {
-    if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return;
+    if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return undefined;
+
+    if (zoomCleanupRef.current) {
+      zoomCleanupRef.current();
+      zoomCleanupRef.current = null;
+    }
 
     try {
       const containerWidth = svgRef.current.parentElement.clientWidth || 800;
@@ -582,8 +686,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         n.y = c.y + r * Math.sin(θ);
       });
 
-      const zoom = setupZoom(svg, g, width, height);
+      const { zoom, cleanup: cleanupZoom } = setupZoom(svg, g, width, height);
       zoomRef.current = zoom;
+      zoomCleanupRef.current = cleanupZoom;
 
       const linkForce = d3.forceLink(data.links)
         .id(d => d.id)
@@ -858,6 +963,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     } catch (error) {
       console.error("Error rendering network visualization:", error);
     }
+
+    return () => {
+      if (zoomCleanupRef.current) {
+        zoomCleanupRef.current();
+        zoomCleanupRef.current = null;
+      }
+    };
     // Intentionally only `data`: full D3 scene graph is rebuilt when the dataset changes;
     // `colorBy` / `colorMaps` updates are handled by the recolor effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
