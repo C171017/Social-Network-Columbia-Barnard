@@ -167,6 +167,15 @@ path {
   transition: opacity .2s;
 }
 
+/* Instant opacity on touch / narrow viewports — avoids jank when toggling focus on many SVG elements. */
+@media (hover: none), (max-width: 768px) {
+  .node,
+  .link-full,
+  .link-arrow {
+    transition: none;
+  }
+}
+
 .dim {
   opacity: .1 !important;
 }

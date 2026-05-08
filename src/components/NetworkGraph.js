@@ -88,9 +88,6 @@ const ZOOM_CLUSTER_THRESHOLD_DESKTOP = 0.08;
 const ZOOM_CLUSTER_THRESHOLD_MOBILE = 0.08;
 const CLUSTER_GROUP_MIN_NODES = 8;
 const CLUSTER_EXIT_HYSTERESIS = 0.02;
-const MOBILE_INTERACTION_IDLE_MS = 140;
-/** Duration of in-group expansion sim after a plain node click (no drag). */
-const GROUP_SIM_EXPAND_MS = 100;
 const CLUSTER_EXCLUDED_COLORS = new Set(['#9e9e9e', '#999999', '#808080', 'gray', 'grey']);
 
 const MOBILE_BREAKPOINT_PX = 768;
@@ -374,8 +371,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   useEffect(() => {
     if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return undefined;
     const isMobile = isMobileViewport();
-    let interactionIdleTimer = null;
-    let isInteractionSimplified = false;
 
     if (zoomCleanupRef.current) {
       zoomCleanupRef.current();
@@ -385,7 +380,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     let handleGlobalDragRelease = null;
     let simulation = null;
     let groupMiniSimInstance = null;
-    let groupExpandTimerId = null;
     /** Assigned inside try once helpers exist; cleanup always calls a safe no-op if render failed. */
     let teardownGroupMiniSimOnly = () => {};
     try {
@@ -796,14 +790,53 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         nodesByGroup[d.__groupIndex].push(this);
       });
 
-      // Per-group mini simulation (expand on click, or sustained while dragging a node).
+      let currentHighlight = null;
+
+      /** Apply highlight/dim only to viewport-visible groups (same culling as physics/DOM). */
+      const applyViewportHighlightClasses = () => {
+        if (inClusterMode || groupCount === 0) return;
+
+        for (let gi = 0; gi < groupCount; gi++) {
+          if (!visibleGroups.has(gi)) continue;
+
+          const ns = nodesByGroup[gi];
+          for (let i = 0; i < ns.length; i++) {
+            const d = d3.select(ns[i]).datum();
+            const gId = groupMap.get(d.id);
+            const isHi = currentHighlight !== null && gId === currentHighlight;
+            d3.select(ns[i])
+              .classed('highlight', isHi)
+              .classed('dim', currentHighlight !== null && !isHi);
+          }
+
+          const fl = fullLinksByGroup[gi];
+          for (let i = 0; i < fl.length; i++) {
+            const lk = d3.select(fl[i]).datum();
+            const s = groupMap.get(lk.source.id ?? lk.source);
+            const t = groupMap.get(lk.target.id ?? lk.target);
+            const isLinkHi = s === currentHighlight && t === currentHighlight;
+            d3.select(fl[i])
+              .classed('highlight', isLinkHi)
+              .classed('dim', currentHighlight !== null && !isLinkHi);
+          }
+
+          const als = arrowLinksByGroup[gi];
+          for (let i = 0; i < als.length; i++) {
+            const lk = d3.select(als[i]).datum();
+            const s = groupMap.get(lk.source.id ?? lk.source);
+            const t = groupMap.get(lk.target.id ?? lk.target);
+            const isLinkHi = s === currentHighlight && t === currentHighlight;
+            d3.select(als[i])
+              .classed('highlight', isLinkHi)
+              .classed('dim', currentHighlight !== null && !isLinkHi);
+          }
+        }
+      };
+
+      // Per-group mini simulation while dragging a node (hold); clicks only toggle highlight/focus.
       // DOM updates use pre-bucketed elements only — never selectAll + filter each tick.
 
       teardownGroupMiniSimOnly = () => {
-        if (groupExpandTimerId != null) {
-          window.clearTimeout(groupExpandTimerId);
-          groupExpandTimerId = null;
-        }
         if (groupMiniSimInstance) {
           groupMiniSimInstance.stop();
           groupMiniSimInstance = null;
@@ -841,7 +874,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         }
       };
 
-      const startGroupMiniSim = (gi, { sustained } = {}) => {
+      const startGroupMiniSim = (gi) => {
         if (inClusterMode) return false;
         if (!Number.isFinite(gi)) return false;
         teardownGroupMiniSimOnly();
@@ -870,13 +903,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           });
 
         groupMiniSimInstance.alpha(1).restart();
-
-        if (!sustained) {
-          groupExpandTimerId = window.setTimeout(() => {
-            groupExpandTimerId = null;
-            stopGroupMiniSimFully();
-          }, GROUP_SIM_EXPAND_MS);
-        }
         return true;
       };
 
@@ -1101,16 +1127,15 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
         simulation.alpha(0.12).restart();
         updateUiSurfaceTheme();
+        applyViewportHighlightClasses();
       };
 
-      let markInteraction = () => {};
       const { zoom, cleanup: cleanupZoom } = setupZoom(
         svg,
         g,
         width,
         height,
         (transform) => {
-          markInteraction();
           currentTransform = transform;
           applyGroupCulling();
           updateUiSurfaceTheme();
@@ -1118,11 +1143,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       );
       zoomRef.current = zoom;
       zoomCleanupRef.current = cleanupZoom;
-      svg.on('touchstart.interaction', markInteraction);
-      svg.on('touchmove.interaction', markInteraction);
-      svg.on('wheel.interaction', markInteraction);
 
-      let currentHighlight = null;
       let suppressNextClick = false;
 
       node.on('click', (event, d) => {
@@ -1134,29 +1155,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         // toggle on/off
         currentHighlight = (currentHighlight === grp ? null : grp);
 
-        // 1) highlight only that group’s nodes
-        d3.selectAll('.node')
-          .classed('highlight', n => groupMap.get(n.id) === currentHighlight)
-          .classed('dim', n => currentHighlight != null && groupMap.get(n.id) !== currentHighlight);
+        // Highlight/dim only nodes & links in viewport-visible groups (see applyGroupCulling).
+        applyViewportHighlightClasses();
 
-        // 2) highlight only that group’s links/arrows
-        d3.selectAll('.link-full, .link-arrow')
-          .classed('highlight', l => {
-            const s = groupMap.get(l.source.id ?? l.source);
-            const t = groupMap.get(l.target.id ?? l.target);
-            return s === currentHighlight && t === currentHighlight;
-          })
-          .classed('dim', l => {
-            if (currentHighlight == null) return false;
-            const s = groupMap.get(l.source.id ?? l.source);
-            const t = groupMap.get(l.target.id ?? l.target);
-            return !(s === currentHighlight && t === currentHighlight);
-          });
-
-        // Short in-group physics burst so the clicked cluster visibly expands (~1s).
-        if (currentHighlight != null) {
-          startGroupMiniSim(currentHighlight, { sustained: false });
-        } else {
+        // Click only toggles focus/highlight; in-group expansion runs while dragging (hold).
+        if (currentHighlight == null) {
           stopGroupMiniSimFully();
         }
       });
@@ -1188,71 +1191,73 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       };
 
       clusterGroupRecords.forEach(({ gi, sel, size }) => {
-        sel
-          .style('pointer-events', 'auto')
-          .on('mouseover', (event) => {
-            const liveColorBy = colorByRef.current;
-            const liveColorMaps = colorMapsRef.current || {};
-            const valCounts = computeGroupValueCounts(gi, liveColorBy);
-            const colorMap = liveColorMaps[liveColorBy] || {};
-            const top = [...valCounts.entries()]
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 6);
+        const clusterSel = sel.style('pointer-events', 'auto');
+        if (!isMobile) {
+          clusterSel
+            .on('mouseover', (event) => {
+              const liveColorBy = colorByRef.current;
+              const liveColorMaps = colorMapsRef.current || {};
+              const valCounts = computeGroupValueCounts(gi, liveColorBy);
+              const colorMap = liveColorMaps[liveColorBy] || {};
+              const top = [...valCounts.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6);
 
-            let html = `<h4 style="margin:0 0 4px 0;">Group #${gi} \u00b7 ${size} nodes</h4>`;
-            html += `<div style="font-size:0.8em;opacity:0.7;margin-bottom:6px;">By: ${liveColorBy}</div>`;
-            html += '<div style="display:flex;flex-direction:column;gap:3px;">';
-            top.forEach(([val, count]) => {
-              const color = colorMap[val] || '#9e9e9e';
-              const pct = ((count / size) * 100).toFixed(0);
-              html += `<div style="display:flex;align-items:center;gap:6px;font-size:0.85em;">`
-                + `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex:none;"></span>`
-                + `<span>${val}: ${count} (${pct}%)</span>`
-                + `</div>`;
-            });
-            if (valCounts.size > top.length) {
-              html += `<div style="opacity:0.6;font-size:0.8em;margin-top:2px;">+${valCounts.size - top.length} more\u2026</div>`;
-            }
-            html += '</div>';
-            html += '<div style="opacity:0.6;font-size:0.75em;margin-top:6px;">Click to zoom in</div>';
-
-            tooltip
-              .html(html)
-              .style('left', (event.pageX + 12) + 'px')
-              .style('top', (event.pageY + 12) + 'px')
-              .classed('visible', true)
-              .transition()
-              .duration(200)
-              .style('opacity', 0.95)
-              .style('transform', 'translateY(0)');
-          })
-          .on('mousemove', (event) => {
-            tooltip
-              .style('left', (event.pageX + 12) + 'px')
-              .style('top', (event.pageY + 12) + 'px');
-          })
-          .on('mouseout', () => {
-            tooltip.transition()
-              .duration(200)
-              .style('opacity', 0)
-              .style('transform', 'translateY(10px)')
-              .on('end', function () {
-                tooltip.classed('visible', false);
+              let html = `<h4 style="margin:0 0 4px 0;">Group #${gi} \u00b7 ${size} nodes</h4>`;
+              html += `<div style="font-size:0.8em;opacity:0.7;margin-bottom:6px;">By: ${liveColorBy}</div>`;
+              html += '<div style="display:flex;flex-direction:column;gap:3px;">';
+              top.forEach(([val, count]) => {
+                const color = colorMap[val] || '#9e9e9e';
+                const pct = ((count / size) * 100).toFixed(0);
+                html += `<div style="display:flex;align-items:center;gap:6px;font-size:0.85em;">`
+                  + `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex:none;"></span>`
+                  + `<span>${val}: ${count} (${pct}%)</span>`
+                  + `</div>`;
               });
-          })
-          .on('click', () => {
-            const c = computeGroupCentroid(gi);
-            const targetK = getZoomClusterThreshold() * 2.5;
-            const target = d3.zoomIdentity
-              .translate(width / 2, height / 2)
-              .scale(targetK)
-              .translate(-c.x, -c.y);
-            svg.transition()
-              .duration(500)
-              .call(zoom.transform, target);
-            tooltip.transition().duration(150).style('opacity', 0)
-              .on('end', function () { tooltip.classed('visible', false); });
-          });
+              if (valCounts.size > top.length) {
+                html += `<div style="opacity:0.6;font-size:0.8em;margin-top:2px;">+${valCounts.size - top.length} more\u2026</div>`;
+              }
+              html += '</div>';
+              html += '<div style="opacity:0.6;font-size:0.75em;margin-top:6px;">Click to zoom in</div>';
+
+              tooltip
+                .html(html)
+                .style('left', (event.pageX + 12) + 'px')
+                .style('top', (event.pageY + 12) + 'px')
+                .classed('visible', true)
+                .transition()
+                .duration(200)
+                .style('opacity', 0.95)
+                .style('transform', 'translateY(0)');
+            })
+            .on('mousemove', (event) => {
+              tooltip
+                .style('left', (event.pageX + 12) + 'px')
+                .style('top', (event.pageY + 12) + 'px');
+            })
+            .on('mouseout', () => {
+              tooltip.transition()
+                .duration(200)
+                .style('opacity', 0)
+                .style('transform', 'translateY(10px)')
+                .on('end', function () {
+                  tooltip.classed('visible', false);
+                });
+            });
+        }
+        clusterSel.on('click', () => {
+          const c = computeGroupCentroid(gi);
+          const targetK = getZoomClusterThreshold() * 2.5;
+          const target = d3.zoomIdentity
+            .translate(width / 2, height / 2)
+            .scale(targetK)
+            .translate(-c.x, -c.y);
+          svg.transition()
+            .duration(500)
+            .call(zoom.transform, target);
+          tooltip.transition().duration(150).style('opacity', 0)
+            .on('end', function () { tooltip.classed('visible', false); });
+        });
       });
 
       // Add node shapes and tooltips
@@ -1260,34 +1265,35 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         const nodeGroup = d3.select(this);
         const nodePathInfo = createNodePath(d);
 
-        // Add tooltip events
-        nodeGroup
-          .on('mouseover', (event) => {
-            const major = [d.cu_major, d.cu_major_1, d.major]
-              .map((value) => (value == null ? '' : String(value).trim()))
-              .find((value) => value !== '') || 'N/A';
-            let html = `<h4>ID: ${d.id}</h4>`;
-            html += `<p><strong>Major:</strong> ${major}</p>`;
+        if (!isMobile) {
+          nodeGroup
+            .on('mouseover', (event) => {
+              const major = [d.cu_major, d.cu_major_1, d.major]
+                .map((value) => (value == null ? '' : String(value).trim()))
+                .find((value) => value !== '') || 'N/A';
+              let html = `<h4>ID: ${d.id}</h4>`;
+              html += `<p><strong>Major:</strong> ${major}</p>`;
 
-            tooltip
-              .html(html)
-              .style('left', (event.pageX + 10) + 'px')
-              .style('top', (event.pageY - 28) + 'px')
-              .classed('visible', true)
-              .transition()
-              .duration(200)
-              .style('opacity', 0.9)
-              .style('transform', 'translateY(0)');
-          })
-          .on('mouseout', () => {
-            tooltip.transition()
-              .duration(300)
-              .style('opacity', 0)
-              .style('transform', 'translateY(10px)')
-              .on('end', function () {
-                tooltip.classed('visible', false);
-              });
-          });
+              tooltip
+                .html(html)
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 28) + 'px')
+                .classed('visible', true)
+                .transition()
+                .duration(200)
+                .style('opacity', 0.9)
+                .style('transform', 'translateY(0)');
+            })
+            .on('mouseout', () => {
+              tooltip.transition()
+                .duration(300)
+                .style('opacity', 0)
+                .style('transform', 'translateY(10px)')
+                .on('end', function () {
+                  tooltip.classed('visible', false);
+                });
+            });
+        }
 
         renderNodeVisual(nodeGroup, d, nodePathInfo, {
           colorMaps,
@@ -1296,40 +1302,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           simplified: false
         });
       });
-
-      const renderNodeDetailsForInteraction = (simplified) => {
-        node.each(function (d) {
-          const nodeGroup = d3.select(this);
-          const liveColorBy = colorByRef.current;
-          const liveColorMaps = colorMapsRef.current || {};
-          const liveGetNodeColor = (nodeDatum) => getNodeColorFromMaps(nodeDatum, liveColorBy, liveColorMaps);
-          const nodePathInfo = simplified ? null : createNodePathInfo(d, liveColorBy, liveColorMaps);
-          nodeGroup.selectAll('path').remove();
-          nodeGroup.selectAll('circle').remove();
-          renderNodeVisual(nodeGroup, d, nodePathInfo, {
-            colorMaps: liveColorMaps,
-            colorBy: liveColorBy,
-            getNodeColor: liveGetNodeColor,
-            simplified
-          });
-        });
-      };
-
-      const setInteractionSimplified = (simplified) => {
-        if (!isMobile || simplified === isInteractionSimplified) return;
-        isInteractionSimplified = simplified;
-        renderNodeDetailsForInteraction(simplified);
-      };
-
-      markInteraction = () => {
-        if (!isMobile) return;
-        setInteractionSimplified(true);
-        if (interactionIdleTimer) window.clearTimeout(interactionIdleTimer);
-        interactionIdleTimer = window.setTimeout(() => {
-          interactionIdleTimer = null;
-          setInteractionSimplified(false);
-        }, MOBILE_INTERACTION_IDLE_MS);
-      };
 
       // Keep node centers inside the draggable inner disk
       simulation.on('tick', () => {
@@ -1385,7 +1357,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       window.addEventListener('blur', handleGlobalDragRelease);
 
       function dragstarted(event, d) {
-        markInteraction();
         dragHadMovement = false;
         // Defensive: if a previous drag ended unexpectedly, clear stale pin.
         if (activeDragNode) {
@@ -1395,7 +1366,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         activeDragNode = d;
         const gi = groupMap.get(d.id);
         // Pause global sim; run in-group physics for the dragged cluster until drag ends.
-        startGroupMiniSim(gi, { sustained: true });
+        startGroupMiniSim(gi);
 
         const p = clampNodeToDisk(d.x, d.y);
         d.fx = p.x;
@@ -1404,16 +1375,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       function dragged(event, d) {
         dragHadMovement = true;
-        markInteraction();
         const c = clampNodeToDisk(event.x, event.y);
         d.fx = c.x;
         d.fy = c.y;
       }
 
       function dragended(event, d) {
-        markInteraction();
         // Only swallow the following click when this was a real drag; tap-to-select
-        // must not set this or `click` never runs highlight / group sim (see node.on('click')).
+        // must not set this or `click` never runs highlight (see node.on('click')).
         suppressNextClick = dragHadMovement;
         // Ensure we release whichever node is actively tracked even if d differs.
         activeDragNode = activeDragNode || d;
@@ -1428,10 +1397,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       if (handleGlobalDragRelease) {
         window.removeEventListener('mouseup', handleGlobalDragRelease, true);
         window.removeEventListener('blur', handleGlobalDragRelease);
-      }
-      if (interactionIdleTimer) {
-        window.clearTimeout(interactionIdleTimer);
-        interactionIdleTimer = null;
       }
       teardownGroupMiniSimOnly();
       if (simulation) simulation.stop();
