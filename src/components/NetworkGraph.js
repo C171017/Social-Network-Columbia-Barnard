@@ -86,6 +86,59 @@ const ZOOM_MAX_MOBILE = 1;
 const INITIAL_ZOOM_MULTIPLIER_DESKTOP = 1.4;
 const INITIAL_ZOOM_MULTIPLIER_MOBILE = 1.0;
 
+// Cluster mode: when zoomed below ZOOM_CLUSTER_THRESHOLD, large groups collapse
+// into a single organic "cloud" shape and smaller groups disappear entirely.
+// This avoids per-node DOM/physics work when the user can't visually distinguish
+// individual nodes anyway.
+const ZOOM_CLUSTER_THRESHOLD = 0.1;
+const CLUSTER_GROUP_MIN_NODES = 20;
+const CLUSTER_BASE_R = 80;
+const CLUSTER_PX_PER_SQRT_NODE = 20;
+const CLUSTER_EXIT_HYSTERESIS = 0.02;
+const CLUSTER_SWITCH_DEBOUNCE_MS = 140;
+
+// Cheap deterministic PRNG keyed by an integer seed (mulberry32-style). Using
+// a deterministic jitter keeps each cluster's organic shape stable across
+// re-renders / recolors.
+function seededRand(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// (Re)populate a cluster <g> with jittered colored dots whose sizes are
+// proportional to per-color node counts. The cluster filter (#cluster-cloud)
+// blurs them into a single organic blob with soft color fusion at overlaps.
+function renderClusterContents(clusterSel, gi, colorCounts, totalSize) {
+  clusterSel.selectAll('circle').remove();
+  const clusterR = CLUSTER_BASE_R + CLUSTER_PX_PER_SQRT_NODE * Math.sqrt(Math.max(1, totalSize));
+  const entries = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const rand = seededRand(gi * 1000003 + 17);
+
+  entries.forEach(([color, count]) => {
+    const dotR = Math.max(24, Math.sqrt(count) * 22);
+    const dotsPerColor = count >= 8 ? 3 : (count >= 3 ? 2 : 1);
+    for (let i = 0; i < dotsPerColor; i++) {
+      const theta = rand() * 2 * Math.PI;
+      const radial = Math.sqrt(rand()) * 0.55 * clusterR;
+      const cx = Math.cos(theta) * radial;
+      const cy = Math.sin(theta) * radial;
+      const subScale = i === 0 ? 1 : 0.65 + rand() * 0.2;
+      clusterSel.append('circle')
+        .attr('cx', cx)
+        .attr('cy', cy)
+        .attr('r', dotR * subScale)
+        .attr('fill', color)
+        .attr('fill-opacity', 0.85);
+    }
+  });
+}
+
 const MOBILE_BREAKPOINT_PX = 768;
 function isMobileViewport() {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -161,8 +214,15 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   const controlsRef = useRef(null);
   const zoomRef = useRef(null);
   const zoomCleanupRef = useRef(null);
+  // Refs that mirror colorBy / colorMaps so cluster tooltip handlers (bound
+  // inside the data-keyed main effect) always read the latest values.
+  const colorByRef = useRef(colorBy);
+  const colorMapsRef = useRef({});
   const [colorMaps, setColorMaps] = useState({});
   const [darkSurface, setDarkSurface] = useState(false);
+
+  useEffect(() => { colorByRef.current = colorBy; }, [colorBy]);
+  useEffect(() => { colorMapsRef.current = colorMaps; }, [colorMaps]);
 
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -442,6 +502,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       zoomCleanupRef.current();
       zoomCleanupRef.current = null;
     }
+    let pendingClusterSwitchTimer = null;
 
     try {
       const containerWidth = svgRef.current.parentElement.clientWidth || 800;
@@ -605,6 +666,24 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('stop-color', '#6366f1')
         .attr('stop-opacity', 0);
 
+      // Cluster cloud filter: blur multiple jittered colored circles into a single
+      // organic blob. The alpha-channel color matrix (last row) re-sharpens the blurred
+      // alpha so the blob has a defined edge while interior overlaps still color-blend.
+      const clusterFilter = defs.append('filter')
+        .attr('id', 'cluster-cloud')
+        .attr('x', '-30%')
+        .attr('y', '-30%')
+        .attr('width', '160%')
+        .attr('height', '160%');
+      clusterFilter.append('feGaussianBlur')
+        .attr('in', 'SourceGraphic')
+        .attr('stdDeviation', 14)
+        .attr('result', 'blur');
+      clusterFilter.append('feColorMatrix')
+        .attr('in', 'blur')
+        .attr('mode', 'matrix')
+        .attr('values', '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 14 -6');
+
       // Create a group for the visualization (zoom target)
       const g = svg.append('g');
 
@@ -684,6 +763,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       let currentTransform = d3.zoomIdentity;
       let visibleGroups = new Set();
       let lastUiIsDark = null;
+      let inClusterMode = false;
 
       const linkForce = d3.forceLink(data.links)
         .id(d => d.id)
@@ -705,9 +785,21 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         l.__groupIndex = groupMap.get(l.source.id ?? l.source);
       });
 
+      // Active + parked layers for DOM culling. Culled elements are moved to parked
+      // layers (detached from visible world) and reattached when needed.
+      const activeLinkLayer = world.append('g').attr('class', 'link-layer-active');
+      const activeNodeLayer = world.append('g').attr('class', 'node-layer-active');
+      const activeClusterLayer = world.append('g').attr('class', 'cluster-layer-active');
+      const parkedRoot = g.append('g')
+        .attr('class', 'parked-dom-root')
+        .attr('display', 'none')
+        .attr('pointer-events', 'none');
+      const parkedLinkLayer = parkedRoot.append('g').attr('class', 'link-layer-parked');
+      const parkedNodeLayer = parkedRoot.append('g').attr('class', 'node-layer-parked');
+      const parkedClusterLayer = parkedRoot.append('g').attr('class', 'cluster-layer-parked');
+
       // Create links
-      const linkGroup = world.append('g');
-      const fullLinks = linkGroup.selectAll('.link-full')
+      const fullLinks = activeLinkLayer.selectAll('.link-full')
         .data(data.links)
         .enter()
         .append('path')
@@ -715,7 +807,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('fill', 'none')
         .attr('stroke', '#999')
         .attr('stroke-width', 3);
-      const arrowLinks = linkGroup.selectAll('.link-arrow')
+      const arrowLinks = activeLinkLayer.selectAll('.link-arrow')
         .data(data.links)
         .enter()
         .append('path')
@@ -725,7 +817,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('marker-end', 'url(#arrow)');
 
       // Create nodes
-      const node = world.append('g')
+      const node = activeNodeLayer
         .selectAll('.node')
         .data(data.nodes)
         .enter()
@@ -735,6 +827,111 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .on('start', dragstarted)
           .on('drag', dragged)
           .on('end', dragended));
+
+      // ── Cluster layer (zoom-out cloud blobs) ─────────────────────────────
+      // One <g class="cluster"> per qualifying group. They start parked, then
+      // get attached into activeClusterLayer in cluster mode.
+      const clusterLayer = parkedClusterLayer;
+
+      const computeGroupCentroid = (gi) => {
+        let sx = 0;
+        let sy = 0;
+        let count = 0;
+        for (const n of data.nodes) {
+          if (n.__groupIndex === gi) {
+            sx += n.x;
+            sy += n.y;
+            count += 1;
+          }
+        }
+        if (count === 0) return { x: CIRCLE_CX, y: CIRCLE_CY };
+        return { x: sx / count, y: sy / count };
+      };
+
+      const computeGroupColorCounts = (gi) => {
+        const counts = new Map();
+        for (const n of data.nodes) {
+          if (n.__groupIndex !== gi) continue;
+          const c = getNodeColor(n);
+          counts.set(c, (counts.get(c) || 0) + 1);
+        }
+        return counts;
+      };
+
+      // Build one cluster <g> per qualifying group (hidden by default).
+      const clusterGroupRecords = [];
+      for (let gi = 0; gi < groupCount; gi++) {
+        if (groupSizes[gi] < CLUSTER_GROUP_MIN_NODES) continue;
+        const cg = clusterLayer.append('g')
+          .attr('class', 'cluster')
+          .attr('data-gi', gi)
+          .attr('display', 'none')
+          .style('cursor', 'pointer')
+          .style('filter', 'url(#cluster-cloud)');
+        clusterGroupRecords.push({ gi, sel: cg, size: groupSizes[gi] });
+      }
+
+      // Initial paint using current colorBy.
+      clusterGroupRecords.forEach(({ gi, sel, size }) => {
+        renderClusterContents(sel, gi, computeGroupColorCounts(gi), size);
+      });
+
+      const fullLinksByGroup = Array.from({ length: groupCount }, () => []);
+      fullLinks.each(function (d) {
+        fullLinksByGroup[d.__groupIndex].push(this);
+      });
+      const arrowLinksByGroup = Array.from({ length: groupCount }, () => []);
+      arrowLinks.each(function (d) {
+        arrowLinksByGroup[d.__groupIndex].push(this);
+      });
+      const nodesByGroup = Array.from({ length: groupCount }, () => []);
+      node.each(function (d) {
+        nodesByGroup[d.__groupIndex].push(this);
+      });
+      const clusterByGroup = Array.from({ length: groupCount }, () => null);
+      clusterGroupRecords.forEach(({ gi, sel }) => {
+        clusterByGroup[gi] = sel.node();
+      });
+
+      let nodeAttached = Array.from({ length: groupCount }, () => true);
+      let linkAttached = Array.from({ length: groupCount }, () => true);
+      let clusterAttached = Array.from({ length: groupCount }, () => false);
+      let pendingClusterMode = null;
+
+      const moveElems = (elems, parentNode) => {
+        if (!parentNode || !elems?.length) return;
+        elems.forEach((el) => {
+          if (el && el.parentNode !== parentNode) {
+            parentNode.appendChild(el);
+          }
+        });
+      };
+
+      const setGroupNodeAttachment = (gi, attach) => {
+        if (nodeAttached[gi] === attach) return;
+        moveElems(nodesByGroup[gi], attach ? activeNodeLayer.node() : parkedNodeLayer.node());
+        nodeAttached[gi] = attach;
+      };
+
+      const setGroupLinkAttachment = (gi, attach) => {
+        if (linkAttached[gi] === attach) return;
+        const target = attach ? activeLinkLayer.node() : parkedLinkLayer.node();
+        moveElems(fullLinksByGroup[gi], target);
+        moveElems(arrowLinksByGroup[gi], target);
+        linkAttached[gi] = attach;
+      };
+
+      const setGroupClusterAttachment = (gi, attach) => {
+        if (clusterAttached[gi] === attach) return;
+        const el = clusterByGroup[gi];
+        if (!el) {
+          clusterAttached[gi] = false;
+          return;
+        }
+        const target = attach ? activeClusterLayer.node() : parkedClusterLayer.node();
+        if (el.parentNode !== target) target.appendChild(el);
+        clusterAttached[gi] = attach;
+      };
 
       const updateUiSurfaceTheme = () => {
         const controlsEl = controlsRef.current;
@@ -761,8 +958,128 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         }
       };
 
+      const enterClusterMode = () => {
+        inClusterMode = true;
+
+        // DOM-cull all individual nodes/links while clustered.
+        for (let gi = 0; gi < groupCount; gi++) {
+          setGroupNodeAttachment(gi, false);
+          setGroupLinkAttachment(gi, false);
+        }
+
+        // Freeze physics for ALL nodes so they hold position while clustered.
+        data.nodes.forEach((n) => {
+          if (!n.__clusterFrozen) {
+            n.__prevFx = n.fx;
+            n.__prevFy = n.fy;
+            n.fx = n.x;
+            n.fy = n.y;
+            n.__clusterFrozen = true;
+          }
+        });
+        simulation.stop();
+
+        // Attach and position only qualifying clusters.
+        clusterGroupRecords.forEach(({ gi, sel, size }) => {
+          const c = computeGroupCentroid(gi);
+          if (size >= CLUSTER_GROUP_MIN_NODES) {
+            setGroupClusterAttachment(gi, true);
+          }
+          sel.attr('transform', `translate(${c.x},${c.y})`)
+            .attr('display', null)
+            .classed('culled', false);
+        });
+        for (let gi = 0; gi < groupCount; gi++) {
+          if (groupSizes[gi] < CLUSTER_GROUP_MIN_NODES) {
+            setGroupClusterAttachment(gi, false);
+          }
+        }
+
+        visibleGroups = new Set();
+      };
+
+      const exitClusterMode = () => {
+        inClusterMode = false;
+
+        // Park all clusters when leaving cluster mode.
+        clusterGroupRecords.forEach(({ gi, sel }) => {
+          sel.attr('display', null).classed('culled', false);
+          setGroupClusterAttachment(gi, false);
+        });
+
+        // Restore prior fx/fy on cluster-frozen nodes (which may have been null,
+        // or pinned by the older viewport-cull path).
+        data.nodes.forEach((n) => {
+          if (n.__clusterFrozen) {
+            n.fx = n.__prevFx ?? null;
+            n.fy = n.__prevFy ?? null;
+            n.__prevFx = undefined;
+            n.__prevFy = undefined;
+            n.__clusterFrozen = false;
+            // Clear the older viewport-cull flag too, since we just set fx/fy.
+            n.__culledFixed = false;
+          }
+        });
+
+        // Force the cull below to re-evaluate from a clean slate.
+        visibleGroups = new Set();
+        simulation.alpha(0.2).restart();
+      };
+
+      const isClusterWanted = () => {
+        if (inClusterMode) {
+          return currentTransform.k < (ZOOM_CLUSTER_THRESHOLD + CLUSTER_EXIT_HYSTERESIS);
+        }
+        return currentTransform.k < ZOOM_CLUSTER_THRESHOLD;
+      };
+
+      const commitClusterModeIfNeeded = () => {
+        pendingClusterMode = null;
+        if (pendingClusterSwitchTimer) {
+          window.clearTimeout(pendingClusterSwitchTimer);
+          pendingClusterSwitchTimer = null;
+        }
+        const wantClusterMode = isClusterWanted();
+        if (wantClusterMode === inClusterMode) return false;
+        if (wantClusterMode) {
+          enterClusterMode();
+        } else {
+          exitClusterMode();
+        }
+        return true;
+      };
+
+      const scheduleClusterModeSwitch = (targetMode) => {
+        if (targetMode === inClusterMode) {
+          pendingClusterMode = null;
+          if (pendingClusterSwitchTimer) {
+            window.clearTimeout(pendingClusterSwitchTimer);
+            pendingClusterSwitchTimer = null;
+          }
+          return;
+        }
+        if (pendingClusterMode === targetMode && pendingClusterSwitchTimer) return;
+        pendingClusterMode = targetMode;
+        if (pendingClusterSwitchTimer) window.clearTimeout(pendingClusterSwitchTimer);
+        pendingClusterSwitchTimer = window.setTimeout(() => {
+          pendingClusterSwitchTimer = null;
+          const didSwitch = commitClusterModeIfNeeded();
+          if (didSwitch) {
+            applyGroupCulling();
+            updateUiSurfaceTheme();
+          }
+        }, CLUSTER_SWITCH_DEBOUNCE_MS);
+      };
+
       const applyGroupCulling = () => {
         const t = currentTransform;
+        const wantClusterMode = isClusterWanted();
+        if (wantClusterMode !== inClusterMode) {
+          scheduleClusterModeSwitch(wantClusterMode);
+        }
+        if (inClusterMode) return;
+
+        // ── Normal mode: viewport cull ──
         const margin = NODE_RADIUS + 20;
         const minX = (-t.x) / t.k - margin;
         const maxX = (width - t.x) / t.k + margin;
@@ -793,9 +1110,13 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         visibleGroups = nextVisibleGroups;
         if (!changed) return;
 
-        node.classed('culled', d => !visibleGroups.has(d.__groupIndex));
-        fullLinks.classed('culled', d => !visibleGroups.has(d.__groupIndex));
-        arrowLinks.classed('culled', d => !visibleGroups.has(d.__groupIndex));
+        // DOM-cull by moving full groups between active and parked layers.
+        for (let gi = 0; gi < groupCount; gi++) {
+          const shouldAttach = visibleGroups.has(gi);
+          setGroupNodeAttachment(gi, shouldAttach);
+          setGroupLinkAttachment(gi, shouldAttach);
+          setGroupClusterAttachment(gi, false);
+        }
 
         // Freeze physics for offscreen groups and unfreeze when visible again.
         data.nodes.forEach((n) => {
@@ -864,6 +1185,93 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('class', 'tooltip')
         .style('opacity', 0)
         .style('pointer-events', 'none');
+
+      // ── Cluster interactivity (hover tooltip + click-to-zoom) ────────────
+      // Tooltip shows the colorBy-value breakdown for that group; click
+      // animates the zoom past ZOOM_CLUSTER_THRESHOLD so the cluster
+      // expands back into individual nodes. Uses colorByRef / colorMapsRef
+      // so it stays correct after the user changes the colorBy selection
+      // (the main effect only re-runs on `data` changes, not colorBy).
+      const computeGroupValueCounts = (gi, key) => {
+        const counts = new Map();
+        for (const n of data.nodes) {
+          if (n.__groupIndex !== gi) continue;
+          const field = n[key];
+          const val = field == null || field === ''
+            ? '(unknown)'
+            : String(field).split(',')[0].trim();
+          counts.set(val, (counts.get(val) || 0) + 1);
+        }
+        return counts;
+      };
+
+      clusterGroupRecords.forEach(({ gi, sel, size }) => {
+        sel
+          .style('pointer-events', 'auto')
+          .on('mouseover', (event) => {
+            const liveColorBy = colorByRef.current;
+            const liveColorMaps = colorMapsRef.current || {};
+            const valCounts = computeGroupValueCounts(gi, liveColorBy);
+            const colorMap = liveColorMaps[liveColorBy] || {};
+            const top = [...valCounts.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 6);
+
+            let html = `<h4 style="margin:0 0 4px 0;">Group #${gi} \u00b7 ${size} nodes</h4>`;
+            html += `<div style="font-size:0.8em;opacity:0.7;margin-bottom:6px;">By: ${liveColorBy}</div>`;
+            html += '<div style="display:flex;flex-direction:column;gap:3px;">';
+            top.forEach(([val, count]) => {
+              const color = colorMap[val] || '#9e9e9e';
+              const pct = ((count / size) * 100).toFixed(0);
+              html += `<div style="display:flex;align-items:center;gap:6px;font-size:0.85em;">`
+                + `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex:none;"></span>`
+                + `<span>${val}: ${count} (${pct}%)</span>`
+                + `</div>`;
+            });
+            if (valCounts.size > top.length) {
+              html += `<div style="opacity:0.6;font-size:0.8em;margin-top:2px;">+${valCounts.size - top.length} more\u2026</div>`;
+            }
+            html += '</div>';
+            html += '<div style="opacity:0.6;font-size:0.75em;margin-top:6px;">Click to zoom in</div>';
+
+            tooltip
+              .html(html)
+              .style('left', (event.pageX + 12) + 'px')
+              .style('top', (event.pageY + 12) + 'px')
+              .classed('visible', true)
+              .transition()
+              .duration(200)
+              .style('opacity', 0.95)
+              .style('transform', 'translateY(0)');
+          })
+          .on('mousemove', (event) => {
+            tooltip
+              .style('left', (event.pageX + 12) + 'px')
+              .style('top', (event.pageY + 12) + 'px');
+          })
+          .on('mouseout', () => {
+            tooltip.transition()
+              .duration(200)
+              .style('opacity', 0)
+              .style('transform', 'translateY(10px)')
+              .on('end', function () {
+                tooltip.classed('visible', false);
+              });
+          })
+          .on('click', () => {
+            const c = computeGroupCentroid(gi);
+            const targetK = ZOOM_CLUSTER_THRESHOLD * 2.5;
+            const target = d3.zoomIdentity
+              .translate(width / 2, height / 2)
+              .scale(targetK)
+              .translate(-c.x, -c.y);
+            svg.transition()
+              .duration(500)
+              .call(zoom.transform, target);
+            tooltip.transition().duration(150).style('opacity', 0)
+              .on('end', function () { tooltip.classed('visible', false); });
+          });
+      });
 
       // Add node shapes and tooltips
       node.each(function (d) {
@@ -958,6 +1366,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       // Keep node centers inside the draggable inner disk
       simulation.on('tick', () => {
+        // In cluster mode, individual nodes/links are hidden and physics is
+        // frozen, so skip all per-node DOM writes for performance.
+        if (inClusterMode) {
+          return;
+        }
+
         clampNodesInPlace(data.nodes);
 
         fullLinks
@@ -1072,6 +1486,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     }
 
     return () => {
+      if (pendingClusterSwitchTimer) {
+        window.clearTimeout(pendingClusterSwitchTimer);
+        pendingClusterSwitchTimer = null;
+      }
       if (zoomCleanupRef.current) {
         zoomCleanupRef.current();
         zoomCleanupRef.current = null;
@@ -1134,6 +1552,25 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       nodeGroup.append('circle')
         .attr('class', 'node-hub')
         .attr('r', 6);
+    });
+
+    // Rebuild cluster contents so the cloud blob's color mix reflects the
+    // newly-selected colorBy. Cluster <g>s were created lazily by the main
+    // effect for groups with size >= CLUSTER_GROUP_MIN_NODES.
+    g.selectAll('.cluster').each(function () {
+      const clusterSel = d3.select(this);
+      const gi = Number(clusterSel.attr('data-gi'));
+      if (!Number.isFinite(gi)) return;
+      const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === gi);
+      if (!groupNodes.length) return;
+
+      const colorCounts = new Map();
+      groupNodes.forEach((n) => {
+        const c = getNodeColor(n);
+        colorCounts.set(c, (colorCounts.get(c) || 0) + 1);
+      });
+
+      renderClusterContents(clusterSel, gi, colorCounts, groupSizes[gi]);
     });
   }, [colorBy, colorMaps, getNodeColor, createNodePath, data, largeGroupThreshold]);
 
