@@ -66,12 +66,15 @@ function renderNodeVisual(nodeGroup, d, nodePathInfo, options) {
     colorBy,
     getNodeColor,
     includeHub = false,
-    includeDataAttrs = false
+    includeDataAttrs = false,
+    simplified = false
   } = options;
 
-  appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
+  if (!simplified) {
+    appendLargeGroupNodeAccent(nodeGroup, d, groupMap, groupSizes, largeGroupThreshold);
+  }
 
-  if (nodePathInfo) {
+  if (!simplified && nodePathInfo) {
     const items = nodePathInfo.items;
     const colorMap = colorMaps[colorBy];
     const anglePerItem = (2 * Math.PI) / items.length;
@@ -90,7 +93,7 @@ function renderNodeVisual(nodeGroup, d, nodePathInfo, options) {
     if (includeDataAttrs) circle.attr('data-single', true);
   }
 
-  if (includeHub) {
+  if (includeHub && !simplified) {
     nodeGroup.append('circle').attr('class', 'node-hub').attr('r', 6);
   }
 }
@@ -111,19 +114,30 @@ const ZOOM_MAX_MOBILE = 1;
 const INITIAL_ZOOM_MULTIPLIER_DESKTOP = 1.4;
 const INITIAL_ZOOM_MULTIPLIER_MOBILE = 1.0;
 
-// Cluster mode: when zoomed below ZOOM_CLUSTER_THRESHOLD, large groups collapse
+// Cluster mode: when zoomed below the viewport-specific threshold, large groups collapse
 // into a single organic "cloud" shape and smaller groups disappear entirely.
 // This avoids per-node DOM/physics work when the user can't visually distinguish
 // individual nodes anyway.
-const ZOOM_CLUSTER_THRESHOLD = 0.1;
+const ZOOM_CLUSTER_THRESHOLD_DESKTOP = 0.1;
+const ZOOM_CLUSTER_THRESHOLD_MOBILE = 0.08;
 const CLUSTER_GROUP_MIN_NODES = 20;
 const CLUSTER_EXIT_HYSTERESIS = 0.02;
-const CLUSTER_SWITCH_DEBOUNCE_MS = 140;
+const MOBILE_INTERACTION_IDLE_MS = 140;
+const CLUSTER_EXCLUDED_COLORS = new Set(['#9e9e9e', '#999999', '#808080', 'gray', 'grey']);
 
 const MOBILE_BREAKPOINT_PX = 768;
 function isMobileViewport() {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches;
+}
+
+function getZoomClusterThreshold() {
+  return isMobileViewport() ? ZOOM_CLUSTER_THRESHOLD_MOBILE : ZOOM_CLUSTER_THRESHOLD_DESKTOP;
+}
+
+function shouldExcludeClusterColor(color) {
+  if (color == null) return true;
+  return CLUSTER_EXCLUDED_COLORS.has(String(color).trim().toLowerCase());
 }
 
 // Canvas: circle clip, soft rim; white↔grey onset and drag clamp share CANVAS_WHITE_INSET / OUTER_RADIUS.
@@ -392,13 +406,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
   // Main visualization effect
   useEffect(() => {
     if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return undefined;
+    const isMobile = isMobileViewport();
+    let interactionIdleTimer = null;
+    let isInteractionSimplified = false;
 
     if (zoomCleanupRef.current) {
       zoomCleanupRef.current();
       zoomCleanupRef.current = null;
     }
-    let pendingClusterSwitchTimer = null;
-
     try {
       const containerWidth = svgRef.current.parentElement.clientWidth || 800;
       const containerHeight = window.innerHeight * 0.7 || 600;
@@ -486,16 +501,18 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .attr('stop-opacity', opacity);
       }
 
-      // Tiny blur to further hide any residual banding caused by rasterization.
-      const backdropSoften = defs.append('filter')
-        .attr('id', 'backdrop-soften')
-        .attr('x', '-15%')
-        .attr('y', '-15%')
-        .attr('width', '130%')
-        .attr('height', '130%');
-      backdropSoften.append('feGaussianBlur')
-        .attr('in', 'SourceGraphic')
-        .attr('stdDeviation', 2.2);
+      if (!isMobile) {
+        // Keep blur polish on desktop only; skip on mobile for GPU headroom.
+        const backdropSoften = defs.append('filter')
+          .attr('id', 'backdrop-soften')
+          .attr('x', '-15%')
+          .attr('y', '-15%')
+          .attr('width', '130%')
+          .attr('height', '130%');
+        backdropSoften.append('feGaussianBlur')
+          .attr('in', 'SourceGraphic')
+          .attr('stdDeviation', 2.2);
+      }
       defs.append('marker')
         .attr('id', 'arrow')
         .attr('viewBox', '0 -5 10 10')
@@ -561,23 +578,23 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('stop-color', '#6366f1')
         .attr('stop-opacity', 0);
 
-      // Cluster cloud filter: blur multiple jittered colored circles into a single
-      // organic blob. The alpha-channel color matrix (last row) re-sharpens the blurred
-      // alpha so the blob has a defined edge while interior overlaps still color-blend.
-      const clusterFilter = defs.append('filter')
-        .attr('id', 'cluster-cloud')
-        .attr('x', '-30%')
-        .attr('y', '-30%')
-        .attr('width', '160%')
-        .attr('height', '160%');
-      clusterFilter.append('feGaussianBlur')
-        .attr('in', 'SourceGraphic')
-        .attr('stdDeviation', 14)
-        .attr('result', 'blur');
-      clusterFilter.append('feColorMatrix')
-        .attr('in', 'blur')
-        .attr('mode', 'matrix')
-        .attr('values', '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 14 -6');
+      if (!isMobile) {
+        // Keep cluster cloud blur on desktop only; skip on mobile.
+        const clusterFilter = defs.append('filter')
+          .attr('id', 'cluster-cloud')
+          .attr('x', '-30%')
+          .attr('y', '-30%')
+          .attr('width', '160%')
+          .attr('height', '160%');
+        clusterFilter.append('feGaussianBlur')
+          .attr('in', 'SourceGraphic')
+          .attr('stdDeviation', 14)
+          .attr('result', 'blur');
+        clusterFilter.append('feColorMatrix')
+          .attr('in', 'blur')
+          .attr('mode', 'matrix')
+          .attr('values', '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 14 -6');
+      }
 
       // Create a group for the visualization (zoom target)
       const g = svg.append('g');
@@ -590,7 +607,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         .attr('cy', CIRCLE_CY)
         .attr('r', CANVAS_BACKDROP_RADIUS)
         .attr('fill', 'url(#canvas-edge-soft)')
-        .attr('filter', 'url(#backdrop-soften)');
+        .attr('filter', isMobile ? null : 'url(#backdrop-soften)');
 
       const world = g.append('g')
         .attr('clip-path', 'url(#viewport-circle-clip)')
@@ -748,6 +765,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         for (const n of data.nodes) {
           if (n.__groupIndex !== gi) continue;
           const c = getNodeColor(n);
+          if (shouldExcludeClusterColor(c)) continue;
           counts.set(c, (counts.get(c) || 0) + 1);
         }
         return counts;
@@ -762,7 +780,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           .attr('data-gi', gi)
           .attr('display', 'none')
           .style('cursor', 'pointer')
-          .style('filter', 'url(#cluster-cloud)');
+          .style('filter', isMobile ? null : 'url(#cluster-cloud)');
         clusterGroupRecords.push({ gi, sel: cg, size: groupSizes[gi] });
       }
 
@@ -791,7 +809,6 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       let nodeAttached = Array.from({ length: groupCount }, () => true);
       let linkAttached = Array.from({ length: groupCount }, () => true);
       let clusterAttached = Array.from({ length: groupCount }, () => false);
-      let pendingClusterMode = null;
 
       const moveElems = (elems, parentNode) => {
         if (!parentNode || !elems?.length) return;
@@ -922,18 +939,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       };
 
       const isClusterWanted = () => {
+        const clusterThreshold = getZoomClusterThreshold();
         if (inClusterMode) {
-          return currentTransform.k < (ZOOM_CLUSTER_THRESHOLD + CLUSTER_EXIT_HYSTERESIS);
+          return currentTransform.k < (clusterThreshold + CLUSTER_EXIT_HYSTERESIS);
         }
-        return currentTransform.k < ZOOM_CLUSTER_THRESHOLD;
+        return currentTransform.k < clusterThreshold;
       };
 
       const commitClusterModeIfNeeded = () => {
-        pendingClusterMode = null;
-        if (pendingClusterSwitchTimer) {
-          window.clearTimeout(pendingClusterSwitchTimer);
-          pendingClusterSwitchTimer = null;
-        }
         const wantClusterMode = isClusterWanted();
         if (wantClusterMode === inClusterMode) return false;
         if (wantClusterMode) {
@@ -944,33 +957,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         return true;
       };
 
-      const scheduleClusterModeSwitch = (targetMode) => {
-        if (targetMode === inClusterMode) {
-          pendingClusterMode = null;
-          if (pendingClusterSwitchTimer) {
-            window.clearTimeout(pendingClusterSwitchTimer);
-            pendingClusterSwitchTimer = null;
-          }
-          return;
-        }
-        if (pendingClusterMode === targetMode && pendingClusterSwitchTimer) return;
-        pendingClusterMode = targetMode;
-        if (pendingClusterSwitchTimer) window.clearTimeout(pendingClusterSwitchTimer);
-        pendingClusterSwitchTimer = window.setTimeout(() => {
-          pendingClusterSwitchTimer = null;
-          const didSwitch = commitClusterModeIfNeeded();
-          if (didSwitch) {
-            applyGroupCulling();
-            updateUiSurfaceTheme();
-          }
-        }, CLUSTER_SWITCH_DEBOUNCE_MS);
-      };
-
       const applyGroupCulling = () => {
         const t = currentTransform;
         const wantClusterMode = isClusterWanted();
         if (wantClusterMode !== inClusterMode) {
-          scheduleClusterModeSwitch(wantClusterMode);
+          commitClusterModeIfNeeded();
         }
         if (inClusterMode) return;
 
@@ -1033,12 +1024,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         updateUiSurfaceTheme();
       };
 
+      let markInteraction = () => {};
       const { zoom, cleanup: cleanupZoom } = setupZoom(
         svg,
         g,
         width,
         height,
         (transform) => {
+          markInteraction();
           currentTransform = transform;
           applyGroupCulling();
           updateUiSurfaceTheme();
@@ -1046,6 +1039,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       );
       zoomRef.current = zoom;
       zoomCleanupRef.current = cleanupZoom;
+      svg.on('touchstart.interaction', markInteraction);
+      svg.on('touchmove.interaction', markInteraction);
+      svg.on('wheel.interaction', markInteraction);
 
       let currentHighlight = null;
 
@@ -1155,7 +1151,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           })
           .on('click', () => {
             const c = computeGroupCentroid(gi);
-            const targetK = ZOOM_CLUSTER_THRESHOLD * 2.5;
+            const targetK = getZoomClusterThreshold() * 2.5;
             const target = d3.zoomIdentity
               .translate(width / 2, height / 2)
               .scale(targetK)
@@ -1176,8 +1172,11 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
         // Add tooltip events
         nodeGroup
           .on('mouseover', (event) => {
+            const major = [d.cu_major, d.cu_major_1, d.major]
+              .map((value) => (value == null ? '' : String(value).trim()))
+              .find((value) => value !== '') || 'N/A';
             let html = `<h4>ID: ${d.id}</h4>`;
-            html += `<p><strong>Major:</strong> ${d.cu_major}</p>`;
+            html += `<p><strong>Major:</strong> ${major}</p>`;
 
             tooltip
               .html(html)
@@ -1205,11 +1204,47 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
           largeGroupThreshold,
           colorMaps,
           colorBy,
-          getNodeColor
+          getNodeColor,
+          simplified: false
         });
       });
 
+      const renderNodeDetailsForInteraction = (simplified) => {
+        node.each(function (d) {
+          const nodeGroup = d3.select(this);
+          const liveColorBy = colorByRef.current;
+          const liveColorMaps = colorMapsRef.current || {};
+          const liveGetNodeColor = (nodeDatum) => getNodeColorFromMaps(nodeDatum, liveColorBy, liveColorMaps);
+          const nodePathInfo = simplified ? null : createNodePathInfo(d, liveColorBy, liveColorMaps);
+          nodeGroup.selectAll('path').remove();
+          nodeGroup.selectAll('circle').remove();
+          renderNodeVisual(nodeGroup, d, nodePathInfo, {
+            groupMap,
+            groupSizes,
+            largeGroupThreshold,
+            colorMaps: liveColorMaps,
+            colorBy: liveColorBy,
+            getNodeColor: liveGetNodeColor,
+            simplified
+          });
+        });
+      };
 
+      const setInteractionSimplified = (simplified) => {
+        if (!isMobile || simplified === isInteractionSimplified) return;
+        isInteractionSimplified = simplified;
+        renderNodeDetailsForInteraction(simplified);
+      };
+
+      markInteraction = () => {
+        if (!isMobile) return;
+        setInteractionSimplified(true);
+        if (interactionIdleTimer) window.clearTimeout(interactionIdleTimer);
+        interactionIdleTimer = window.setTimeout(() => {
+          interactionIdleTimer = null;
+          setInteractionSimplified(false);
+        }, MOBILE_INTERACTION_IDLE_MS);
+      };
 
       // Keep node centers inside the draggable inner disk
       simulation.on('tick', () => {
@@ -1242,6 +1277,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
 
       // Drag handlers
       function dragstarted(event, d) {
+        markInteraction();
         const myGroup = groupMap.get(d.id);
 
         const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === myGroup);
@@ -1291,12 +1327,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       }
 
       function dragged(event, d) {
+        markInteraction();
         const c = clampNodeToDisk(event.x, event.y);
         d.fx = c.x;
         d.fy = c.y;
       }
 
       function dragended(event, d) {
+        markInteraction();
         if (miniSimRef.current) {
           miniSimRef.current.stop();
           miniSimRef.current = null;
@@ -1313,9 +1351,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
     }
 
     return () => {
-      if (pendingClusterSwitchTimer) {
-        window.clearTimeout(pendingClusterSwitchTimer);
-        pendingClusterSwitchTimer = null;
+      if (interactionIdleTimer) {
+        window.clearTimeout(interactionIdleTimer);
+        interactionIdleTimer = null;
       }
       if (zoomCleanupRef.current) {
         zoomCleanupRef.current();
@@ -1373,6 +1411,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data, largeGroupThreshold = 20 }) =
       const colorCounts = new Map();
       groupNodes.forEach((n) => {
         const c = getNodeColor(n);
+        if (shouldExcludeClusterColor(c)) return;
         colorCounts.set(c, (colorCounts.get(c) || 0) + 1);
       });
 
