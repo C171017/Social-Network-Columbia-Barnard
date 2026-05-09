@@ -1,38 +1,28 @@
-import { CLUSTER_BASE_R, CLUSTER_PX_PER_SQRT_NODE } from '../constants/graphConstants';
+const MIN_CLUSTER_OPACITY = 0.18;
+const MAX_CLUSTER_OPACITY = 0.95;
 
-export function seededRand(seed) {
-  let s = (seed >>> 0) || 1;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
 }
 
-export function renderClusterContents(clusterSel, gi, colorCounts, totalSize) {
+export function renderClusterContents(clusterSel, circles) {
   clusterSel.selectAll('circle').remove();
-  const clusterR = CLUSTER_BASE_R + CLUSTER_PX_PER_SQRT_NODE * Math.sqrt(Math.max(1, totalSize));
-  const entries = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]);
-  const rand = seededRand(gi * 1000003 + 17);
+  if (!circles?.length) return;
 
-  entries.forEach(([color, count]) => {
-    const dotR = Math.max(24, Math.sqrt(count) * 22);
-    const dotsPerColor = count >= 8 ? 3 : count >= 3 ? 2 : 1;
-    for (let i = 0; i < dotsPerColor; i++) {
-      const theta = rand() * 2 * Math.PI;
-      const radial = Math.sqrt(rand()) * 0.55 * clusterR;
-      const cx = Math.cos(theta) * radial;
-      const cy = Math.sin(theta) * radial;
-      const subScale = i === 0 ? 1 : 0.65 + rand() * 0.2;
-      clusterSel
-        .append('circle')
-        .attr('cx', cx)
-        .attr('cy', cy)
-        .attr('r', dotR * subScale)
-        .attr('fill', color)
-        .attr('fill-opacity', 0.85);
-    }
+  const minDensity = circles.reduce((m, c) => Math.min(m, c.density), Number.POSITIVE_INFINITY);
+  const maxDensity = circles.reduce((m, c) => Math.max(m, c.density), Number.NEGATIVE_INFINITY);
+  const densityRange = Math.max(1e-9, maxDensity - minDensity);
+
+  const sortedCircles = [...circles].sort((a, b) => b.radius - a.radius);
+  sortedCircles.forEach((circle) => {
+    const t = clamp01((circle.density - minDensity) / densityRange);
+    const opacity = MIN_CLUSTER_OPACITY + (MAX_CLUSTER_OPACITY - MIN_CLUSTER_OPACITY) * Math.sqrt(t);
+    clusterSel
+      .append('circle')
+      .attr('cx', circle.cx)
+      .attr('cy', circle.cy)
+      .attr('r', circle.radius)
+      .attr('fill', circle.color)
+      .attr('fill-opacity', opacity);
   });
 }

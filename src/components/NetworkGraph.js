@@ -113,6 +113,64 @@ function shouldExcludeClusterColor(color) {
   return CLUSTER_EXCLUDED_COLORS.has(String(color).trim().toLowerCase());
 }
 
+const MIN_CLUSTER_COLOR_RADIUS = 14;
+const MIN_CLUSTER_AREA = Math.PI * MIN_CLUSTER_COLOR_RADIUS * MIN_CLUSTER_COLOR_RADIUS;
+
+function buildColorClusterCircles(groupNodes, getNodeColor, groupCenter) {
+  const nodesByColor = new Map();
+  groupNodes.forEach((n) => {
+    const color = getNodeColor(n);
+    if (shouldExcludeClusterColor(color)) return;
+    if (!nodesByColor.has(color)) nodesByColor.set(color, []);
+    nodesByColor.get(color).push(n);
+  });
+
+  const circles = [];
+  nodesByColor.forEach((nodes, color) => {
+    if (!nodes.length) return;
+
+    let bestDx = 0;
+    let bestDy = 0;
+    let maxDistSq = 0;
+    let midX = nodes[0].x;
+    let midY = nodes[0].y;
+
+    if (nodes.length > 1) {
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const dx = nodes[j].x - nodes[i].x;
+          const dy = nodes[j].y - nodes[i].y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq > maxDistSq) {
+            maxDistSq = distSq;
+            bestDx = dx;
+            bestDy = dy;
+            midX = (nodes[i].x + nodes[j].x) / 2;
+            midY = (nodes[i].y + nodes[j].y) / 2;
+          }
+        }
+      }
+    }
+
+    const furthestDistance = Math.sqrt(bestDx * bestDx + bestDy * bestDy);
+    const rawRadius = furthestDistance / 2;
+    const radius = Math.max(MIN_CLUSTER_COLOR_RADIUS, rawRadius);
+    const area = Math.max(MIN_CLUSTER_AREA, Math.PI * radius * radius);
+    const density = nodes.length / area;
+
+    circles.push({
+      color,
+      count: nodes.length,
+      cx: midX - groupCenter.x,
+      cy: midY - groupCenter.y,
+      radius,
+      density
+    });
+  });
+
+  return circles;
+}
+
 // Canvas: circle clip, soft rim; white↔grey onset and drag clamp share CANVAS_WHITE_INSET / OUTER_RADIUS.
 const LEGACY_SQUARE_SIDE = 25000;
 const CANVAS_SCALE = 0.85;
@@ -758,15 +816,14 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         return { x: sx / count, y: sy / count };
       };
 
-      const computeGroupColorCounts = (gi) => {
-        const counts = new Map();
+      const computeGroupClusterCircles = (gi) => {
+        const groupNodes = [];
         for (const n of data.nodes) {
-          if (n.__groupIndex !== gi) continue;
-          const c = getNodeColor(n);
-          if (shouldExcludeClusterColor(c)) continue;
-          counts.set(c, (counts.get(c) || 0) + 1);
+          if (n.__groupIndex === gi) groupNodes.push(n);
         }
-        return counts;
+        if (!groupNodes.length) return [];
+        const center = computeGroupCentroid(gi);
+        return buildColorClusterCircles(groupNodes, getNodeColor, center);
       };
 
       // Build one cluster <g> per qualifying group (hidden by default).
@@ -783,8 +840,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       }
 
       // Initial paint using current colorBy.
-      clusterGroupRecords.forEach(({ gi, sel, size }) => {
-        renderClusterContentsFromModule(sel, gi, computeGroupColorCounts(gi), size);
+      clusterGroupRecords.forEach(({ gi, sel }) => {
+        renderClusterContentsFromModule(sel, computeGroupClusterCircles(gi));
       });
 
       const fullLinksByGroup = Array.from({ length: groupCount }, () => []);
@@ -1460,14 +1517,12 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       const groupNodes = data.nodes.filter(n => groupMap.get(n.id) === gi);
       if (!groupNodes.length) return;
 
-      const colorCounts = new Map();
-      groupNodes.forEach((n) => {
-        const c = getNodeColor(n);
-        if (shouldExcludeClusterColor(c)) return;
-        colorCounts.set(c, (colorCounts.get(c) || 0) + 1);
-      });
-
-      renderClusterContentsFromModule(clusterSel, gi, colorCounts, groupSizes[gi]);
+      const center = {
+        x: groupNodes.reduce((sum, n) => sum + n.x, 0) / groupNodes.length,
+        y: groupNodes.reduce((sum, n) => sum + n.y, 0) / groupNodes.length
+      };
+      const circles = buildColorClusterCircles(groupNodes, getNodeColor, center);
+      renderClusterContentsFromModule(clusterSel, circles);
     });
   }, [colorBy, colorMaps, getNodeColor, createNodePath, data]);
 
