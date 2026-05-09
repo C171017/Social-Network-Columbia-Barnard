@@ -1,6 +1,6 @@
 ////////////////////////////////////////////
 ////////////////////////////////////////////
-//Imports (导入模块)
+// Imports (module imports)
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
@@ -28,7 +28,7 @@ const NODE_RADIUS = 30;
 
 /////////////////////////////////////////////
 /////////////////////////////////////////////
-//buildGroups 函数（构建群组）
+// buildGroups function (build groups)
 
 function renderNodeVisual(nodeGroup, d, nodePathInfo, options) {
   const {
@@ -96,6 +96,14 @@ function isMobileViewport() {
   return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches;
 }
 
+function isDesktopSafariBrowser() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isSafariEngine = /Safari\//.test(ua) && !/Chrome\/|Chromium\/|Edg\/|OPR\/|CriOS\/|FxiOS\//.test(ua);
+  const isMacDesktop = /Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) === 0;
+  return isSafariEngine && isMacDesktop;
+}
+
 function getZoomClusterThreshold() {
   return isMobileViewport() ? ZOOM_CLUSTER_THRESHOLD_MOBILE : ZOOM_CLUSTER_THRESHOLD_DESKTOP;
 }
@@ -124,7 +132,7 @@ const CANVAS_WHITE_OUTER_RADIUS = Math.max(0, CIRCLE_RADIUS - CANVAS_EDGE_FEATHE
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-//	4.	组件定义和 State 初始化
+// 4. Component definition and state initialization
 
 const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   const svgRef = useRef();
@@ -144,7 +152,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
 
-//5. 颜色映射生成 useEffect
+// 5. Color-map generation useEffect
 
   // Build one `colorMaps[key] = { value→color }` map for *all* keys in one pass
   useEffect(() => {
@@ -160,7 +168,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 
-// 8.	getNodeColor & createNodePath (节点着色 & 多值拆分)
+// 8. getNodeColor & createNodePath (node coloring and multi-value splitting)
 
   const getNodeColor = useCallback((d) => {
     return getNodeColorFromMaps(d, colorBy, colorMaps);
@@ -177,7 +185,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// 9.	setupZoom 缩放行为设置
+// 9. setupZoom behavior configuration
 
 
   // Setup zoom behavior
@@ -371,6 +379,8 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
   useEffect(() => {
     if (!svgRef.current || !data || !data.nodes || data.nodes.length === 0) return undefined;
     const isMobile = isMobileViewport();
+    const isDesktopSafari = isDesktopSafariBrowser();
+    const enableHeavySvgEffects = !isMobile && !isDesktopSafari;
 
     if (zoomCleanupRef.current) {
       zoomCleanupRef.current();
@@ -469,7 +479,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .attr('stop-opacity', opacity);
       }
 
-      if (!isMobile) {
+      if (enableHeavySvgEffects) {
         // Keep blur polish on desktop only; skip on mobile for GPU headroom.
         const backdropSoften = defs.append('filter')
           .attr('id', 'backdrop-soften')
@@ -493,7 +503,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#808080');
 
-      if (!isMobile) {
+      if (enableHeavySvgEffects) {
         // Keep cluster cloud blur on desktop only; skip on mobile.
         const clusterFilter = defs.append('filter')
           .attr('id', 'cluster-cloud')
@@ -522,7 +532,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         .attr('cy', CIRCLE_CY)
         .attr('r', CANVAS_BACKDROP_RADIUS)
         .attr('fill', 'url(#canvas-edge-soft)')
-        .attr('filter', isMobile ? null : 'url(#backdrop-soften)');
+        .attr('filter', enableHeavySvgEffects ? 'url(#backdrop-soften)' : null);
 
       const world = g.append('g')
         .attr('clip-path', 'url(#viewport-circle-clip)')
@@ -768,7 +778,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .attr('data-gi', gi)
           .attr('display', 'none')
           .style('cursor', 'pointer')
-          .style('filter', isMobile ? null : 'url(#cluster-cloud)');
+          .style('filter', enableHeavySvgEffects ? 'url(#cluster-cloud)' : null);
         clusterGroupRecords.push({ gi, sel: cg, size: groupSizes[gi] });
       }
 
@@ -1461,8 +1471,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     });
   }, [colorBy, colorMaps, getNodeColor, createNodePath, data]);
 
+  const desktopSafariClass = isDesktopSafariBrowser() ? ' desktop-safari' : '';
+
   return (
-    <div className="network-container">
+    <div className={`network-container${desktopSafariClass}`}>
       <div className="visualization-area">
         <svg ref={svgRef} className="network-graph"
           aria-label="Network graph visualization - draggable view"></svg>

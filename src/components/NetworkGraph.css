@@ -167,6 +167,13 @@ path {
   transition: opacity .2s;
 }
 
+/* Desktop Safari can stutter when many SVG elements transition opacity. */
+.network-container.desktop-safari .node,
+.network-container.desktop-safari .link-full,
+.network-container.desktop-safari .link-arrow {
+  transition: none;
+}
+
 /* Instant opacity on touch / narrow viewports — avoids jank when toggling focus on many SVG elements. */
 @media (hover: none), (max-width: 768px) {
   .node,
