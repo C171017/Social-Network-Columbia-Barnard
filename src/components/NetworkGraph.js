@@ -448,6 +448,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     let handleGlobalDragRelease = null;
     let simulation = null;
     let groupMiniSimInstance = null;
+    let longHoldPhysTimer = null;
     /** Assigned inside try once helpers exist; cleanup always calls a safe no-op if render failed. */
     let teardownGroupMiniSimOnly = () => {};
     try {
@@ -899,7 +900,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
         }
       };
 
-      // Per-group mini simulation while dragging a node (hold); clicks only toggle highlight/focus.
+      // Per-group mini simulation only after a long press on a node (short clicks / quick drags: no mini sim).
       // DOM updates use pre-bucketed elements only — never selectAll + filter each tick.
 
       teardownGroupMiniSimOnly = () => {
@@ -915,8 +916,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       };
 
       const stopGroupMiniSimFully = () => {
+        const hadMini = groupMiniSimInstance != null;
         teardownGroupMiniSimOnly();
-        resumeMainSimulationAfterGroupSim();
+        // Short clicks never start mini-sim; restarting the main force here made nodes jiggle and broke double-click.
+        if (hadMini) resumeMainSimulationAfterGroupSim();
       };
 
       const updateGroupMiniDom = (gi) => {
@@ -1399,11 +1402,18 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       updateUiSurfaceTheme();
 
       // Drag handlers
+      const LONG_HOLD_PHYS_MS = 500;
       let activeDragNode = null;
       /** True once pointer moved during drag; pure clicks never fire `dragged`. */
       let dragHadMovement = false;
+      /** True once long-hold timer fired and in-group physics actually started. */
+      let groupMiniPhysStarted = false;
 
       const releaseActiveDrag = () => {
+        if (longHoldPhysTimer != null) {
+          clearTimeout(longHoldPhysTimer);
+          longHoldPhysTimer = null;
+        }
         // Stop any in-group sim that was sustained during drag before resuming globals.
         stopGroupMiniSimFully();
         // Desktop should always release pinning after drag. On touch we preserve
@@ -1424,19 +1434,26 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
 
       function dragstarted(event, d) {
         dragHadMovement = false;
+        groupMiniPhysStarted = false;
         // Defensive: if a previous drag ended unexpectedly, clear stale pin.
         if (activeDragNode) {
           releaseActiveDrag();
         }
 
         activeDragNode = d;
-        const gi = groupMap.get(d.id);
-        // Pause global sim; run in-group physics for the dragged cluster until drag ends.
-        startGroupMiniSim(gi);
 
         const p = clampNodeToDisk(d.x, d.y);
         d.fx = p.x;
         d.fy = p.y;
+
+        const gi = groupMap.get(d.id);
+        longHoldPhysTimer = window.setTimeout(() => {
+          longHoldPhysTimer = null;
+          if (activeDragNode !== d) return;
+          if (startGroupMiniSim(gi)) {
+            groupMiniPhysStarted = true;
+          }
+        }, LONG_HOLD_PHYS_MS);
       }
 
       function dragged(event, d) {
@@ -1447,9 +1464,9 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
       }
 
       function dragended(event, d) {
-        // Only swallow the following click when this was a real drag; tap-to-select
-        // must not set this or `click` never runs highlight (see node.on('click')).
-        suppressNextClick = dragHadMovement;
+        // Swallow the synthetic click after a real drag, after long-hold physics, or both;
+        // tap-to-select must leave suppressNextClick false for a plain short press.
+        suppressNextClick = dragHadMovement || groupMiniPhysStarted;
         // Ensure we release whichever node is actively tracked even if d differs.
         activeDragNode = activeDragNode || d;
         releaseActiveDrag();
@@ -1460,6 +1477,10 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
     }
 
     return () => {
+      if (longHoldPhysTimer != null) {
+        clearTimeout(longHoldPhysTimer);
+        longHoldPhysTimer = null;
+      }
       if (handleGlobalDragRelease) {
         window.removeEventListener('mouseup', handleGlobalDragRelease, true);
         window.removeEventListener('blur', handleGlobalDragRelease);
