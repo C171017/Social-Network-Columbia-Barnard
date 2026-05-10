@@ -834,8 +834,7 @@ const NetworkGraph = ({ colorBy, setColorBy, data }) => {
           .attr('class', 'cluster')
           .attr('data-gi', gi)
           .attr('display', 'none')
-          .style('cursor', 'pointer')
-          .style('filter', enableHeavySvgEffects ? 'url(#cluster-cloud)' : null);
+          .style('cursor', 'pointer');
         clusterGroupRecords.push({ gi, sel: cg, size: groupSizes[gi] });
       }
 
